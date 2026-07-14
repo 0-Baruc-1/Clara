@@ -1,0 +1,2 @@
+"""Clara backend application."""
+
