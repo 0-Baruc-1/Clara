@@ -37,6 +37,19 @@ npm run dev
 
 Open the URL Vite prints (normally `http://localhost:5173`). The API is available at `http://localhost:8000`; interactive API docs are at `/docs`.
 
+### Test the Planner with the bundled curriculum sample
+
+After configuring `OPENAI_API_KEY` in `backend/.env`, run:
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python examples/run_planner.py
+```
+
+The example requests a 6° básico Ciencias Naturales lesson on changes of state
+of water. It should only cite OA codes in `app/curriculum/sample_objectives.json`.
+
 ## Environment variables
 
 `backend/.env` (not committed):
@@ -55,5 +68,12 @@ VITE_API_BASE_URL=http://localhost:8000
 
 ## How Codex built this
 
-_To be completed as Clara evolves._
-
+El primer agente implementado es el **Planner**. Usa la Responses API con salida
+estructurada validada por Pydantic y reintenta una vez ante una salida inválida o
+un error transitorio. Después valida cada OA contra un proveedor de currículum
+inyectable: el ejemplo local contiene una pequeña muestra oficial de Ciencias
+Naturales y Matemática; un OA no incluido nunca se acepta. Las instrucciones
+compartidas y la referencia curricular se colocan antes de la solicitud variable
+para favorecer prompt caching. Cada agente admite su propio modelo mediante
+variables de entorno: Terra para la planificación y generación principal, y Luna
+por defecto para la revisión de consistencia de menor costo.

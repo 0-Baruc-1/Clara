@@ -13,4 +13,3 @@ class AgentContext:
 
 class Agent(Protocol[OutputT]):
     async def run(self, context: AgentContext) -> OutputT: ...
-

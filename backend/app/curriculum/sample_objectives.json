@@ -1,0 +1,55 @@
+{
+  "source_name": "Currículum Nacional de Chile — Ministerio de Educación (muestra)",
+  "entries": [
+    {
+      "subject": "Ciencias Naturales",
+      "grade_level": "6° básico",
+      "keywords": ["materia", "cambios de estado", "agua", "evaporación", "condensación"],
+      "objective": {
+        "code": "CN06 OA 13",
+        "description": "Demostrar, mediante la investigación experimental, los cambios de estado de la materia, como fusión, evaporación, ebullición, condensación, solidificación y sublimación.",
+        "source": "Currículum Nacional de Chile — Ministerio de Educación"
+      }
+    },
+    {
+      "subject": "Ciencias Naturales",
+      "grade_level": "6° básico",
+      "keywords": ["calor", "temperatura"],
+      "objective": {
+        "code": "CN06 OA 14",
+        "description": "Diferenciar entre calor y temperatura, considerando que el calor es una forma de energía y la temperatura es una medida de lo caliente de un objeto.",
+        "source": "Currículum Nacional de Chile — Ministerio de Educación"
+      }
+    },
+    {
+      "subject": "Ciencias Naturales",
+      "grade_level": "6° básico",
+      "keywords": ["agua", "calentar", "enfriar", "transformaciones"],
+      "objective": {
+        "code": "CN06 OA 15",
+        "description": "Medir e interpretar la información obtenida al calentar y enfriar el agua, considerando las transformaciones de un estado a otro.",
+        "source": "Currículum Nacional de Chile — Ministerio de Educación"
+      }
+    },
+    {
+      "subject": "Matemática",
+      "grade_level": "6° básico",
+      "keywords": ["porcentaje", "porcentajes", "razón"],
+      "objective": {
+        "code": "MA06 OA 04",
+        "description": "Demostrar que comprenden el concepto de porcentaje de manera concreta, pictórica y simbólica, de forma manual y/o usando software educativo.",
+        "source": "Currículum Nacional de Chile — Ministerio de Educación"
+      }
+    },
+    {
+      "subject": "Ciencias Naturales",
+      "grade_level": "2° básico",
+      "keywords": ["ciclo del agua", "agua", "cuidado del agua"],
+      "objective": {
+        "code": "CN02 OA 11",
+        "description": "Describir el ciclo del agua en la naturaleza, reconociendo que el agua es un recurso preciado y proponiendo acciones cotidianas para su cuidado.",
+        "source": "Currículum Nacional de Chile — Ministerio de Educación"
+      }
+    }
+  ]
+}
