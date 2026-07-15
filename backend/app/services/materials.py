@@ -6,6 +6,7 @@ from app.agents.materials import MaterialsAgent, MaterialsGenerationError
 from app.agents.reviewer import ReviewerAgent, ReviewerGenerationError
 from app.core.config import settings
 from app.core.openai_client import SHARED_SYSTEM_CONTEXT
+from app.fixtures.water_pack import water_materials, water_review
 from app.models.requests import LessonRequest, MaterialsRequest
 from app.models.teaching_pack import MaterialPack, ReviewCorrection, ReviewFinding
 from app.services.generation import sse_event
@@ -18,6 +19,15 @@ def _coverage_findings(report, materials: MaterialPack):
     return report.model_copy(update={"status": "findings_remaining" if findings else "clean", "findings": findings})
 
 async def generate_materials_events(request: MaterialsRequest) -> AsyncIterator[str]:
+    if settings.mock_mode:
+        materials = water_materials()
+        yield sse_event("materials_started", {"message": "El agente de Materiales está preparando hojas de ejemplo."})
+        yield sse_event("materials_completed", {"materials": materials.model_dump(mode="json")})
+        yield sse_event("materials_reviewer_started", {"message": "El Revisor está comprobando las hojas de ejemplo."})
+        yield sse_event("materials_reviewer_correcting", {"message": "El Revisor revisó una corrección focalizada de los materiales."})
+        report = water_review().model_copy(update={"correction": ReviewCorrection(attempted=True, target_agent="materials", outcome="corrected")})
+        yield sse_event("materials_reviewer_completed", {"materials": materials.model_dump(mode="json"), "review": report.model_dump(mode="json")})
+        return
     context = AgentContext(request=LessonRequest(description="Generación bajo demanda de materiales."), system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model)
     try:
         yield sse_event("materials_started", {"message": "El agente de Materiales está preparando hojas para el aula."})

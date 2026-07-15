@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -10,6 +11,7 @@ class Settings(BaseSettings):
     assessment_model: str | None = None
     materials_model: str | None = None
     reviewer_model: str | None = None
+    mock_mode: bool = Field(default=False, validation_alias="CLARA_MOCK_MODE")
     frontend_origin: str = "http://localhost:5173"
     coverage_db_path: str = "data/clara_coverage.sqlite3"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

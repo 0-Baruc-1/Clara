@@ -11,6 +11,20 @@ from app.models.teaching_pack import ActivityGuide, Assessment, LessonPlan, Mate
 
 class ReviewerGenerationError(RuntimeError): pass
 
+
+def _cited_curriculum_codes(serialized_artifacts: str, declared_codes: set[str]) -> set[str]:
+    """Keep short references ("OA 13") tied to a declared full code, never a fake code."""
+    full_codes = {
+        match.strip()
+        for match in re.findall(r"\b[A-Z]{2}\d{2}\s+OA\s*\d+\b", serialized_artifacts, flags=re.IGNORECASE)
+    }
+    normalized_declared = {code.strip() for code in declared_codes}
+    for short_number in re.findall(r"(?<![A-Z0-9])OA\s*(\d+)\b", serialized_artifacts, flags=re.IGNORECASE):
+        matches = [code for code in normalized_declared if re.search(rf"\bOA\s*{re.escape(short_number)}\b", code, flags=re.IGNORECASE)]
+        if len(matches) == 1:
+            full_codes.add(matches[0])
+    return full_codes
+
 class ReviewerAgent:
     def __init__(self) -> None: self.tool_trace: list[dict] = []
     async def run(self, context: AgentContext, plan: LessonPlan, activities: ActivityGuide, assessment: Assessment, materials: MaterialPack | None = None, teacher_edit_mode: bool = False) -> ReviewReport:
@@ -21,7 +35,7 @@ También audita que cada hoja pertenezca a la actividad que la solicita; que tar
             ensure_ascii=False,
         )
         declared_codes = {objective.code.strip() for objective in plan.curriculum_alignment.objectives if objective.code.strip()}
-        cited_codes = {match.strip() for match in re.findall(r"\b(?:[A-Z]{2}\d{2}\s+)?OA\s*\d+\b", serialized_artifacts, flags=re.IGNORECASE)}
+        cited_codes = _cited_curriculum_codes(serialized_artifacts, declared_codes)
         codes = sorted(declared_codes | cited_codes)
         trace: list[dict] = []; self.tool_trace = trace
         teacher_edit_guidance = """\nEsta es una versión editada por una docente. Para hallazgos basados en ausencia (por ejemplo, que no se evalúa un objetivo o no se encuentra la evidencia de una actividad), formula siempre una observación sobre el material leído: «No encontré evidencia explícita…». No atribuyas el problema a la docente ni lo presentes como un veredicto. Un código OA que la herramienta verifique como inexistente sí es un hecho y debe seguir siendo bloqueante.""" if teacher_edit_mode else ""

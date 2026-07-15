@@ -8,6 +8,7 @@ from app.agents.planner import PlannerAgent, PlannerGenerationError
 from app.agents.reviewer import ReviewerAgent, ReviewerGenerationError
 from app.core.config import settings
 from app.core.openai_client import SHARED_SYSTEM_CONTEXT
+from app.fixtures.water_pack import water_assessment, water_guide, water_plan, water_review
 from app.models.requests import LessonRequest
 from app.models.teaching_pack import ReviewCorrection
 from app.services.coverage import record_reviewed_pack
@@ -28,6 +29,19 @@ def curriculum_tool_summary(agent: str, call: dict[str, object]) -> str:
     return f"{label} verificó {code}"
 
 async def generate_teaching_pack_events(request: LessonRequest) -> AsyncIterator[str]:
+    if settings.mock_mode:
+        plan, guide, assessment, report = water_plan(), water_guide(), water_assessment(), water_review()
+        yield sse_event("planner_started", {"message": "El Planificador está consultando la muestra curricular local."})
+        yield sse_event("agent_tool_completed", {"agent": "planner", "tool": "buscar_objetivos", "summary": "Planificador consultó la base curricular de muestra · 2 OA encontrados"})
+        yield sse_event("planner_completed", {"plan": plan.model_dump(mode="json")})
+        yield sse_event("designer_started", {"message": "El Diseñador está preparando las actividades de ejemplo."})
+        yield sse_event("designer_completed", {"activities": guide.model_dump(mode="json")})
+        yield sse_event("assessment_started", {"message": "El Evaluador está preparando la evaluación de ejemplo."})
+        yield sse_event("assessment_completed", {"assessment": assessment.model_dump(mode="json")})
+        yield sse_event("reviewer_started", {"message": "El Revisor está comprobando la coherencia del ejemplo."})
+        yield sse_event("reviewer_correcting", {"target_agent": "assessment", "message": "El Revisor revisó una corrección focalizada del Evaluador."})
+        yield sse_event("reviewer_completed", {"review": report.model_dump(mode="json"), "activities": guide.model_dump(mode="json"), "assessment": assessment.model_dump(mode="json")})
+        return
     context = AgentContext(request=request, system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model)
     try:
         yield sse_event("planner_started", {"message": "El Planificador está vinculando la clase con el currículum."})
@@ -54,7 +68,11 @@ async def generate_teaching_pack_events(request: LessonRequest) -> AsyncIterator
                 notes = "\n\nCORRECCIÓN OBLIGATORIA DEL REVISOR:\n" + json.dumps([finding.model_dump(mode="json") for finding in blockers if finding.responsible_agent == target], ensure_ascii=False)
                 if target == "designer": guide = await DesignerAgent().run(context, plan, notes)
                 else: assessment = await AssessmentAgent().run(context, plan, guide, notes)
-                report = await ReviewerAgent().run(context, plan, guide, assessment)
+                corrected_reviewer = ReviewerAgent()
+                report = await corrected_reviewer.run(context, plan, guide, assessment)
+                reviewer = corrected_reviewer
+                for call in getattr(reviewer, "tool_trace", []):
+                    yield sse_event("agent_tool_completed", {"agent": "reviewer", "tool": call["tool"], "summary": curriculum_tool_summary("reviewer", call)})
                 outcome = "corrected" if not any(finding.severity == "bloqueante" for finding in report.findings) else "findings_remaining"
                 report = report.model_copy(update={"correction": ReviewCorrection(attempted=True, target_agent=target, outcome=outcome)})
             except Exception:

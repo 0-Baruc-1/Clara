@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -64,7 +65,10 @@ def _worked_in_activities(code: str, guide: ActivityGuide, review: ReviewReport)
     code_folded = code.casefold()
     return not any(
         finding.category == "objective_coherence"
-        and (finding.artifact_id.casefold() == code_folded or code_folded in finding.description.casefold())
+        and (
+            finding.artifact_id.casefold() == code_folded
+            or re.search(rf"(?<![A-Za-z0-9]){re.escape(code)}(?![A-Za-z0-9])", finding.description, flags=re.IGNORECASE) is not None
+        )
         for finding in review.findings
     )
 

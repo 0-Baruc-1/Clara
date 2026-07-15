@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from app.models.teaching_pack import CurriculumAlignment, CurriculumObjective, ReviewFinding, ReviewReport
-from app.services.coverage import coverage_overview, record_reviewed_pack
+from app.services.coverage import _worked_in_activities, coverage_overview, record_reviewed_pack
 from tests.test_review_correction import fixture_guide, fixture_plan
 
 
@@ -18,6 +18,21 @@ def trace(code: str, exists: bool = True):
 
 
 class CoverageMemoryTests(unittest.TestCase):
+    def test_objective_code_matching_does_not_confuse_oa_one_with_oa_thirteen(self):
+        guide = fixture_guide()
+        review = ReviewReport(
+            status="findings_remaining",
+            summary="Referencia a otro OA.",
+            findings=[ReviewFinding(
+                id="other-oa", severity="importante", responsible_agent="planner",
+                category="objective_coherence", artifact_type="plan", artifact_id="otro",
+                description="No encontré evidencia para CN06 OA 13.",
+                suggested_correction="Revisar.",
+            )],
+        )
+        self.assertTrue(_worked_in_activities("CN06 OA 1", guide, review))
+        self.assertFalse(_worked_in_activities("CN06 OA 13", guide, review))
+
     def test_only_verified_objectives_with_activity_evidence_count_as_coverage(self):
         with tempfile.TemporaryDirectory() as temporary:
             database = Path(temporary) / "coverage.sqlite3"

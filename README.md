@@ -1,24 +1,43 @@
 # Clara
 
-Clara is a multi-agent teaching copilot for teachers in Latin America, starting with the Chilean national curriculum. A teacher describes a class in plain language and Clara will produce an editable, coherent teaching pack: a lesson plan, activity guide, and assessment with rubric.
+Clara es un copiloto de enseñanza para docentes de Chile. Su diferencia no es solo generar material: verifica las afirmaciones curriculares contra una fuente de Objetivos de Aprendizaje (OA), revisa la coherencia entre los artefactos y declara con honestidad lo que no pudo comprobar.
 
-## Agent architecture
+Una docente puede generar un pack, editarlo, pedir una nueva revisión, crear hojas imprimibles bajo demanda, auditar material creado fuera de Clara y observar cobertura curricular acumulada en su sesión local.
 
-All agents are designed to use GPT-5.6 through the configurable `gpt-5.6-terra` model ID. They will share a stable, cached system-context prefix containing common pedagogy instructions and verified curriculum context.
+## Qué entrega
 
-1. **Planner** maps a lesson request to curriculum objectives and a structured plan.
-2. **Designer** creates activities from that plan.
-3. **Assessment** creates an aligned assessment and rubric.
-4. **Reviewer** checks the three artifacts for consistency before returning them.
+El flujo principal crea un pack editable para una clase:
 
-The current `/generate` endpoint returns typed placeholder data. Agent classes and the OpenAI client seam are scaffolded and intentionally marked `TODO` for the next feature iteration.
+- Plan de clase con OA verificados, arco pedagógico, conceptos, prerrequisitos y materiales.
+- Guía de actividades con pasos docentes, productos esperados, agrupamiento y diferenciación.
+- Evaluación con instrumento, respuestas esperadas, rúbrica y tabla de especificaciones agregada por objetivo.
+- Revisión cruzada que comprueba coherencia, grounding de la evaluación, códigos OA y contradicciones internas.
 
-## Run locally
+Los materiales imprimibles se generan bajo demanda después de revisar el pack. La evaluación se muestra en versiones separadas para estudiante y docente. La interfaz permite imprimir el pack, solo la evaluación estudiantil o solo los materiales, y exportar Markdown.
 
-Prerequisites: Python 3.11+ and Node.js 20+.
+## Arquitectura de agentes
+
+1. **Planner**: busca OA usando herramientas curriculares, verifica cada código y define la estructura de la clase.
+2. **Designer**: transforma la estructura en actividades de aula dentro de los presupuestos de tiempo.
+3. **Assessment**: crea el instrumento, las respuestas y la rúbrica; la tabla de especificaciones se deriva de los ítems.
+4. **Reviewer**: verifica los OA contra la fuente, revisa objetivos, evidencias, grounding y contradicciones. Si hay un hallazgo bloqueante atribuible a Designer o Assessment, solicita una sola corrección focalizada y vuelve a revisar.
+5. **Materials**: genera únicamente las hojas que las actividades piden. Un segundo paso del Reviewer audita su correspondencia con la actividad.
+
+Todos los agentes comparten un prefijo de sistema estable con reglas pedagógicas, de trazabilidad y de honestidad curricular. Esto favorece el prompt caching. La referencia curricular no se inyecta como un blob: Planner y Reviewer llaman `buscar_objetivos` y `verificar_objetivo` sobre el mismo proveedor local. Cada código citado debe estar verificado durante esa ejecución; si el proveedor falla, Clara falla cerrada en vez de aceptar un OA sin comprobar.
+
+## Flujos adicionales
+
+- **Auditar material existente**: importa planificación o evaluación en prosa, la interpreta de forma conservadora y utiliza el mismo Reviewer. Las conclusiones que dependen de una ausencia se muestran solo con suficiente confianza de lectura; un OA inexistente sigue siendo un hallazgo bloqueante porque es verificable por presencia.
+- **Revisar mis cambios**: después de editar el pack en el navegador, la docente puede solicitar una auditoría de esa versión. Mantiene el mismo criterio de precisión que el material importado.
+- **Cobertura curricular**: SQLite local registra solo asignatura, nivel, OA declarado, estado de verificación y evidencia de actividad. Un OA cuenta como cubierto únicamente si fue verificado y las actividades lo trabajaron. La vista declara de forma visible que solo representa los packs que Clara ha visto, no toda la planificación anual.
+- **MCP**: Clara expone la auditoría y las herramientas curriculares para que otros agentes verifiquen su propio material antes de entregarlo.
+
+## Ejecutar localmente
+
+Requisitos: Python 3.11+ y Node.js 20+.
 
 ```powershell
-# Terminal 1 — API
+# Terminal 1: API
 cd backend
 Copy-Item .env.example .env
 python -m venv .venv
@@ -28,83 +47,83 @@ uvicorn app.main:app --reload
 ```
 
 ```powershell
-# Terminal 2 — web app
+# Terminal 2: interfaz
 cd frontend
 Copy-Item .env.example .env
 npm install
 npm run dev
 ```
 
-Open the URL Vite prints (normally `http://localhost:5173`). The API is available at `http://localhost:8000`; interactive API docs are at `/docs`.
+Abre la URL que muestra Vite (normalmente `http://localhost:5173`). La API queda en `http://localhost:8000` y su documentación en `http://localhost:8000/docs`.
 
-`POST /generate` returns an SSE-formatted stream so the web app can show the
-Planner and Designer as they complete. It emits `planner_started`,
-`planner_completed`, `designer_started`, `designer_completed`, or `failure`.
-The browser uses `fetch` to consume the stream because the request contains the
-lesson JSON; native `EventSource` only supports GET requests.
+## Modelos y variables de entorno
 
-### Test the Planner with the bundled curriculum sample
+Para usar los agentes reales se requiere una clave de OpenAI y acceso a estos IDs de modelo:
 
-After configuring `OPENAI_API_KEY` in `backend/.env`, run:
+- `gpt-5.6-terra`: razonamiento y generación principal (Planner, Designer, Assessment y Materials).
+- `gpt-5.6-luna`: revisión de consistencia por defecto; puede sustituirse por Terra si se requiere más calidad.
 
-```powershell
-cd backend
-.\.venv\Scripts\Activate.ps1
-python examples/run_planner.py
-```
-
-The example requests a 6° básico Ciencias Naturales lesson on changes of state
-of water. It should only cite OA codes in `app/curriculum/sample_objectives.json`.
-
-To run the Planner followed by the Designer and print its timing checks:
-
-```powershell
-cd backend
-.\.venv\Scripts\Activate.ps1
-python examples/run_pipeline.py
-```
-
-## Environment variables
-
-`backend/.env` (not committed):
+Configura `backend/.env` así:
 
 ```dotenv
-OPENAI_API_KEY=your_openai_api_key
+OPENAI_API_KEY=tu_clave
+# Fallback global si no hay override por agente.
 OPENAI_MODEL=gpt-5.6-terra
-# Optional per-agent overrides; unset values fall back to OPENAI_MODEL.
 PLANNER_MODEL=gpt-5.6-terra
 DESIGNER_MODEL=gpt-5.6-terra
 ASSESSMENT_MODEL=gpt-5.6-terra
+MATERIALS_MODEL=gpt-5.6-terra
 REVIEWER_MODEL=gpt-5.6-luna
 FRONTEND_ORIGIN=http://localhost:5173
 ```
 
-`frontend/.env` (optional):
+Nunca se incluye una clave en código ni en el repositorio.
+
+### Demo backend sin créditos
+
+Para una demostración sin API ni acceso a modelos, activa explícitamente el modo fixture:
 
 ```dotenv
-VITE_API_BASE_URL=http://localhost:8000
-VITE_MOCK=false
+# backend/.env
+CLARA_MOCK_MODE=true
 ```
 
-### Vista previa sin API
+Con ese flag, `/generate`, `/generate-materials`, `/audit` y `/review-edits` sirven datos deterministas de una clase de 6° básico sobre cambios de estado del agua y no crean un cliente de OpenAI. El stream conserva los eventos de los agentes y el beat de corrección del Reviewer para que se pueda recorrer la experiencia completa. No es el comportamiento predeterminado: con `false` o sin la variable, Clara usa los modelos configurados.
 
-Para recorrer la interfaz sin consumir créditos ni iniciar el backend, agrega
-`VITE_MOCK=true` a `frontend/.env` o abre la app con `?mock`. Clara reproducirá
-un pack de 6° básico sobre cambios de estado del agua, incluyendo el ciclo del
-Reviewer que devuelve una corrección al Evaluador. El selector de velocidad de
-la pantalla inicial permite alternar entre lenta, normal y rápida.
+La interfaz también tiene una vista previa independiente: define `VITE_MOCK=true` en `frontend/.env` o abre la aplicación con `?mock`. Esto reproduce los eventos SSE en el navegador sin iniciar el backend.
 
-## MCP: Clara como capa de verificación
+## API y streaming
 
-Clara expone su auditoría curricular como un servidor MCP adicional: no genera material; verifica afirmaciones curriculares y coherencia antes de que otro agente entregue el resultado a una docente.
+`POST /generate` recibe una solicitud de clase y devuelve SSE. Emite, entre otros:
 
-- `auditar_material_educativo(material, asignatura?, nivel?)`: reutiliza el importador y Reviewer de Clara y devuelve un `AuditReport` estructurado con confianza de lectura, notas de interpretación y hallazgos accionables.
-- `verificar_objetivo(codigo)`: consulta la fuente curricular. Si devuelve `existe: false`, el código no debe citarse como OA oficial; Clara indica eliminarlo o reemplazarlo.
-- `buscar_objetivos(asignatura, nivel, tema?)`: devuelve los OA oficiales disponibles para esa cobertura curricular.
+`planner_started` → `planner_completed` → `designer_started` → `designer_completed` → `assessment_started` → `assessment_completed` → `reviewer_started` → `reviewer_correcting` (si aplica) → `reviewer_completed`.
 
-### Conectar por HTTP
+Los eventos `agent_tool_completed` muestran consultas de currículo realizadas por Planner o Reviewer. Los errores de dominio se emiten como `failure`, sin stack trace para la docente.
 
-Al ejecutar la API de Clara, el MCP Streamable HTTP queda disponible en `http://localhost:8000/mcp`. Comparte la aplicación FastAPI con la API existente, sin reemplazarla.
+También existen:
+
+- `POST /generate-materials`: Materials → Reviewer, con streaming propio.
+- `POST /audit`: importador conservador → Reviewer.
+- `POST /review-edits`: revisión de la versión editada.
+- `GET /coverage`: cobertura local por sesión, asignatura y nivel.
+
+## MCP: verificación para otros agentes
+
+El servidor MCP no reemplaza la API. Se monta en Streamable HTTP junto a FastAPI:
+
+```text
+http://localhost:8000/mcp
+```
+
+Expone tres herramientas:
+
+- `auditar_material_educativo(material, asignatura?, nivel?)`
+- `verificar_objetivo(codigo)`
+- `buscar_objetivos(asignatura, nivel, tema?)`
+
+`verificar_objetivo` responde explícitamente `existe: false` y una acción recomendada cuando un código no existe. Un agente generador puede entonces eliminar o corregir un OA antes de que una docente vea el material.
+
+Ejemplo de configuración HTTP:
 
 ```json
 {
@@ -114,9 +133,7 @@ Al ejecutar la API de Clara, el MCP Streamable HTTP queda disponible en `http://
 }
 ```
 
-Para la demo, el MCP Inspector puede conectarse a esa URL. En un despliegue público, protege el endpoint con la capa de autorización propia del entorno antes de compartirlo.
-
-### Conectar por stdio
+Para clientes locales también hay transporte stdio:
 
 ```powershell
 cd backend
@@ -124,59 +141,18 @@ cd backend
 python -m app.mcp_server
 ```
 
-Ejemplo de configuración local en Windows:
-
-```json
-{
-  "mcpServers": {
-    "clara-verifica": {
-      "command": "C:\\ruta\\a\\Clara\\backend\\.venv\\Scripts\\python.exe",
-      "args": ["-m", "app.mcp_server"],
-      "cwd": "C:\\ruta\\a\\Clara\\backend"
-    }
-  }
-}
-```
-
-### Ejemplo: generar y verificar antes de entregar
-
-1. Un agente genera una propuesta para Ciencias Naturales de 6° básico.
-2. Consulta `buscar_objetivos("Ciencias Naturales", "6° básico", "cambios de estado")` para escoger OA disponibles.
-3. Envía el borrador completo a `auditar_material_educativo`.
-4. Si recibe un hallazgo `bloqueante` para `CN06 OA 999`, elimina o reemplaza ese código. Si recibe una observación de ausencia, la trata como evidencia que Clara no pudo encontrar en el material leído, no como una acusación.
-
-## How Codex built this
-
-El primer agente implementado es el **Planner**. Usa la Responses API con salida
-estructurada validada por Pydantic y reintenta una vez ante una salida inválida o
-un error transitorio. Después valida cada OA contra un proveedor de currículum
-inyectable: el ejemplo local contiene una pequeña muestra oficial de Ciencias
-Naturales y Matemática; un OA no incluido nunca se acepta. Las instrucciones
-compartidas y la referencia curricular se colocan antes de la solicitud variable
-para favorecer prompt caching. Cada agente admite su propio modelo mediante
-variables de entorno: Terra para la planificación y generación principal, y Luna
-por defecto para la revisión de consistencia de menor costo.
-
-El **Designer** consume el LessonPlan validado y solicita una salida estructurada
-con GPT-5.6 Terra (configurable mediante `DESIGNER_MODEL`). Verifica que cada
-actividad use una etapa existente, que cada etapa tenga al menos una actividad,
-que no excedan el presupuesto de tiempo y que se limiten a objetivos ya presentes
-en el plan. Esta separación evita que los agentes se reescriban entre sí: el
-**Planner** define el arco pedagógico, objetivos y presupuestos de tiempo, mientras
-el **Designer** crea la coreografía de aula (pasos, agrupamiento, productos y
-diferenciación). El resumen de materiales se deriva determinísticamente de las
-actividades para evitar inconsistencias.
-
-El **Assessment** crea el instrumento final, sus respuestas esperadas y una rúbrica
-observable. Valida cobertura total de objetivos, puntajes y correspondencia entre
-ítems y rúbrica; la tabla de especificaciones agregada se deriva de los ítems.
-En selección múltiple, la alternativa correcta vive en un campo estructurado
-(`correct_option_label`) separado del criterio explicativo; los reintentos reciben
-el error específico de validación para corregirlo.
-
-La corrección del Reviewer tiene una prueba determinística sin llamadas al modelo:
+## Pruebas útiles
 
 ```powershell
 cd backend
-python -m unittest tests.test_review_correction
+.\.venv\Scripts\Activate.ps1
+python -m unittest discover -s tests
 ```
+
+La suite cubre, entre otros casos, el ciclo de corrección focalizada del Reviewer, la precisión de las auditorías importadas, herramientas curriculares, OA alucinados y cobertura longitudinal.
+
+## How Codex built this
+
+Codex implementó Clara por capas: primero contratos Pydantic y el Planner; luego Designer, Assessment y Reviewer; después la interfaz SSE, edición y auditorías. La regla central evolucionó de una instrucción de prompt a una garantía host-enforced: el Planner y Reviewer usan herramientas sobre un único proveedor curricular, y los OA deben verificarse dentro de la ejecución.
+
+La separación de responsabilidades evita que los agentes se reescriban: Planner define estructura; Designer diseña la coreografía; Assessment construye el instrumento; Reviewer comprueba y corrige una vez cuando corresponde. Materials se deja bajo demanda para no gastar tokens en hojas que una docente puede descartar al regenerar el pack. Finalmente, cobertura local y MCP extienden esa misma verificación desde una clase a una secuencia de packs y a herramientas externas.

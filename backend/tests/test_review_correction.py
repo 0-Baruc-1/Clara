@@ -67,11 +67,16 @@ class FakeAssessment:
 
 class FakeReviewer:
     calls = 0
+    def __init__(self):
+        self.tool_trace = []
+
     async def run(self, context, plan, guide, assessment):
         self.__class__.calls += 1
         if self.__class__.calls == 1:
+            self.tool_trace = [{"tool": "verificar_objetivo", "arguments": {"codigo": "CN06 OA 13"}, "result": {"existe": True}}]
             finding = ReviewFinding(id="rev-1", severity="bloqueante", responsible_agent="assessment", category="grounding", artifact_type="assessment_item", artifact_id="item-1", description="La estación final no existe en la guía.", suggested_correction="Eliminar la estación final y usar la observación de hielo.")
             return ReviewReport(status="findings_remaining", summary="Hallazgo de grounding.", findings=[finding])
+        self.tool_trace = [{"tool": "verificar_objetivo", "arguments": {"codigo": "CN06 OA 15"}, "result": {"existe": True}}]
         return ReviewReport(status="clean", summary="Pack coherente.", findings=[])
 
 
@@ -80,8 +85,9 @@ class ReviewCorrectionTest(unittest.IsolatedAsyncioTestCase):
         from app.services import generation
         FakeAssessment.calls = []
         FakeReviewer.calls = 0
+        recorded: list[dict] = []
         request = LessonRequest(description="Clase de ciencias sobre cambios de estado del agua.")
-        with patch.object(generation, "PlannerAgent", FakePlanner), patch.object(generation, "DesignerAgent", FakeDesigner), patch.object(generation, "AssessmentAgent", FakeAssessment), patch.object(generation, "ReviewerAgent", FakeReviewer):
+        with patch.object(generation, "PlannerAgent", FakePlanner), patch.object(generation, "DesignerAgent", FakeDesigner), patch.object(generation, "AssessmentAgent", FakeAssessment), patch.object(generation, "ReviewerAgent", FakeReviewer), patch.object(generation, "record_reviewed_pack", lambda **kwargs: recorded.append(kwargs)):
             frames = [frame async for frame in generation.generate_teaching_pack_events(request)]
         events = [(frame.split("\n", 1)[0].removeprefix("event: "), json.loads(frame.split("data: ", 1)[1])) for frame in frames]
         names = [name for name, _ in events]
@@ -95,6 +101,7 @@ class ReviewCorrectionTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(report["correction"]["attempted"])
         self.assertEqual(report["correction"]["target_agent"], "assessment")
         self.assertEqual(report["correction"]["outcome"], "corrected")
+        self.assertEqual(recorded[0]["verification_trace"][0]["arguments"]["codigo"], "CN06 OA 15")
 
 
 if __name__ == "__main__":

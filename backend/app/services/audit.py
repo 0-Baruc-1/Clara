@@ -5,6 +5,8 @@ from app.agents.importer import ImporterAgent, ImportGenerationError
 from app.agents.reviewer import ReviewerAgent, ReviewerGenerationError
 from app.core.config import settings
 from app.core.openai_client import SHARED_SYSTEM_CONTEXT
+from app.curriculum.tools import CurriculumToolFailure
+from app.fixtures.water_pack import mock_audit_report, water_review
 from app.models.requests import AuditRequest, EditedPackReviewRequest, LessonRequest
 from app.models.teaching_pack import AuditReport, ReviewFinding
 from app.services.generation import sse_event, curriculum_tool_summary
@@ -15,7 +17,7 @@ ABSENCE_CATEGORIES = {"objective_coherence", "grounding"}
 def conservative_findings(findings: list[ReviewFinding], activity_confidence: str, assessment_confidence: str) -> list[ReviewFinding]:
     """Presence facts remain; claims based on missing content need high-confidence parsing."""
     if activity_confidence == "alta" and assessment_confidence == "alta": return findings
-    return [finding for finding in findings if finding.category not in ABSENCE_CATEGORIES or finding.category == "curriculum_honesty"]
+    return [finding for finding in findings if finding.category not in ABSENCE_CATEGORIES]
 
 
 def frame_teacher_edit_findings(findings: list[ReviewFinding]) -> list[ReviewFinding]:
@@ -33,6 +35,12 @@ def frame_teacher_edit_findings(findings: list[ReviewFinding]) -> list[ReviewFin
     return framed
 
 async def audit_material_events(request: AuditRequest) -> AsyncIterator[str]:
+    if settings.mock_mode:
+        yield sse_event("audit_parse_started", {"message": "Clara está leyendo el material de ejemplo."})
+        yield sse_event("audit_parse_completed", {"bundle": {"source_summary": "Material de ejemplo para la demostración."}})
+        yield sse_event("audit_reviewer_started", {"message": "El Revisor está verificando los OA del ejemplo."})
+        yield sse_event("audit_completed", {"report": mock_audit_report().model_dump(mode="json")})
+        return
     context = AgentContext(request=LessonRequest(description="Auditoría de material externo.", subject=request.subject, grade_level=request.grade_level), system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model)
     try:
         yield sse_event("audit_parse_started", {"message": "Clara está identificando objetivos, actividades y evaluación."})
@@ -53,8 +61,10 @@ async def audit_material_events(request: AuditRequest) -> AsyncIterator[str]:
             pass
         report = AuditReport(overall_status="requiere_atencion" if findings or bundle.parse_notes else "listo_para_revisar", source_summary=bundle.source_summary, parse_confidence=bundle.parse_confidence, parse_notes=bundle.parse_notes, findings=findings)
         yield sse_event("audit_completed", {"report": report.model_dump(mode="json")})
-    except (ImportGenerationError, ReviewerGenerationError) as error:
+    except (ImportGenerationError, ReviewerGenerationError, CurriculumToolFailure, RuntimeError) as error:
         yield sse_event("audit_failure", {"message": str(error)})
+    except Exception:
+        yield sse_event("audit_failure", {"message": "No fue posible auditar el material. Inténtalo nuevamente."})
 
 
 async def audit_material_report(request: AuditRequest) -> AuditReport:
@@ -72,6 +82,10 @@ async def audit_material_report(request: AuditRequest) -> AuditReport:
 
 async def review_edited_pack_events(request: EditedPackReviewRequest) -> AsyncIterator[str]:
     """Audit teacher changes without a parser pass; the structured fields are fully readable."""
+    if settings.mock_mode:
+        yield sse_event("edited_review_started", {"message": "Clara está revisando la versión de ejemplo."})
+        yield sse_event("edited_review_completed", {"review": water_review().model_dump(mode="json")})
+        return
     context = AgentContext(
         request=LessonRequest(description="Revisión de cambios realizados por una docente."),
         system_context=SHARED_SYSTEM_CONTEXT,

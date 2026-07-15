@@ -19,7 +19,7 @@ async def health_check() -> dict[str, str]:
 
 @router.post("/generate")
 async def generate(request: LessonRequest) -> StreamingResponse:
-    """Stream validated Planner and Designer milestones as SSE frames."""
+    """Stream the reviewed Planner → Designer → Assessment pipeline as SSE frames."""
     return StreamingResponse(
         generate_teaching_pack_events(request),
         media_type="text/event-stream",
