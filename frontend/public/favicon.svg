@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 134" role="img" aria-label="Clara">
+  <!-- Simplified resting ClaraMark: silhouette, sprout and face remain legible at 16px. -->
+  <g stroke="#075b50" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="#0c7563">
+    <path d="M60 25V14" fill="none"/>
+    <path d="M59 15C47 13 43 5 45 2c10 0 15 6 14 13Z"/>
+    <path d="M61 15c2-9 8-13 16-12 1 8-5 14-16 12Z"/>
+  </g>
+  <path d="M61 23c25 0 35 18 39 37 3 13 17 22 13 40-2 11-11 19-23 21 2 6 5 10 1 12-6 2-11-1-13-8H43c-3 7-8 10-14 8-4-2-1-7 1-12C18 119 9 111 7 100c-4-18 10-28 14-42 6-20 15-35 40-35Z" fill="#eeabb7" stroke="#075b50" stroke-width="4" stroke-linejoin="round"/>
+  <ellipse cx="60" cy="59" rx="31" ry="25" fill="#fff9ed" stroke="#075b50" stroke-width="3"/>
+  <g stroke="#075b50" stroke-width="4" stroke-linecap="round" fill="none">
+    <ellipse cx="49" cy="57" rx="2.4" ry="4.2" fill="#075b50"/>
+    <ellipse cx="71" cy="57" rx="2.4" ry="4.2" fill="#075b50"/>
+    <path d="M53 68c4 4 9 4 14 0"/>
+  </g>
+</svg>
