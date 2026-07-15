@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   ActivityGuide,
   Assessment,
@@ -548,6 +548,7 @@ export function TeachingPackResults({
   onReplay?: () => void;
 }) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
+  const [activeSection, setActiveSection] = useState("plan");
   const grouped = guide.activities.reduce<
     Record<string, typeof guide.activities>
   >((all, activity) => {
@@ -608,6 +609,22 @@ export function TeachingPackResults({
     ["evaluacion", "Instrumento"],
     ...(materials ? [["materiales", "Materiales"]] : []),
   ] as [string, string][];
+  useEffect(() => {
+    const sections = nav
+      .map(([id]) => document.getElementById(id))
+      .filter((section): section is HTMLElement => section !== null);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top);
+        if (visible[0]) setActiveSection(visible[0].target.id);
+      },
+      { rootMargin: "-18% 0px -70% 0px", threshold: 0 },
+    );
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [materials]);
   const pack = (): EditablePack => ({
     lesson_plan: plan,
     activities: guide,
@@ -685,84 +702,43 @@ export function TeachingPackResults({
         </div>
       </header>
       <div className="no-print sticky top-3 z-20 rounded-2xl border border-stone-200 bg-[#fffcf7]/95 p-3 shadow-sm backdrop-blur">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <nav className="flex flex-wrap gap-1" aria-label="Secciones del pack">
-            {nav.map(([id, label]) => (
-              <a
-                key={id}
-                href={`#${id}`}
-                className="rounded-lg px-3 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-100"
-              >
-                {label}
-              </a>
-            ))}
-          </nav>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center rounded-lg border border-stone-200 bg-white p-1">
-              <span className="px-2 text-xs font-bold uppercase tracking-wide text-stone-500">
-                Imprimir
-              </span>
-              <button
-                onClick={() => printTarget("full")}
-                className="rounded-md px-2 py-1.5 text-sm hover:bg-stone-100"
-              >
-                Pack
-              </button>
-              <button
-                onClick={() => printTarget("student")}
-                className="rounded-md px-2 py-1.5 text-sm hover:bg-stone-100"
-              >
-                Estudiantes
-              </button>
-              {materials && (
-                <button
-                  onClick={() => printTarget("materials")}
-                  className="rounded-md px-2 py-1.5 text-sm hover:bg-stone-100"
-                >
-                  Materiales
-                </button>
-              )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">
+              Exportar
+            </summary>
+            <div className="absolute right-0 z-30 mt-2 w-56 rounded-xl border border-stone-200 bg-white p-2 shadow-lg">
+              <p className="px-2 py-1 text-xs font-bold uppercase tracking-wide text-stone-500">Imprimir</p>
+              <button onClick={() => printTarget("full")} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-stone-50">Pack completo</button>
+              <button onClick={() => printTarget("student")} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-stone-50">Evaluación para estudiantes</button>
+              {materials && <button onClick={() => printTarget("materials")} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-stone-50">Materiales imprimibles</button>}
+              <div className="my-1 border-t border-stone-100" />
+              <p className="px-2 py-1 text-xs font-bold uppercase tracking-wide text-stone-500">Markdown</p>
+              <button onClick={copyMarkdown} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-stone-50">{copyState === "copied" ? "Copiado" : "Copiar Markdown"}</button>
+              <button onClick={downloadMarkdown} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-stone-50">Descargar .md</button>
             </div>
-            <button
-              onClick={copyMarkdown}
-              className="rounded-lg border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-700"
-            >
-              {copyState === "copied" ? "Copiado" : "Copiar .md"}
-            </button>
-            <button
-              onClick={downloadMarkdown}
-              className="rounded-lg border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-700"
-            >
-              Descargar .md
-            </button>
-            <button
-              disabled={materialsBusy || !!materials}
-              onClick={() => onGenerateMaterials(pack())}
-              className="rounded-lg bg-[#195b4e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {materials
-                ? "Materiales listos"
-                : materialsBusy
-                  ? "Preparando materiales…"
-                  : "Generar materiales"}
-            </button>
-            <button
-              disabled={!hasEdits || editReviewBusy}
-              onClick={() => onReviewEdits(pack())}
-              className="rounded-lg bg-[#c36c3e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {editReviewBusy ? "Revisando cambios…" : "Revisar mis cambios"}
-            </button>
-            {onReplay && (
-              <button
-                onClick={onReplay}
-                className="ml-1 text-xs font-semibold text-stone-400 underline hover:text-stone-600"
-              >
-                Vista previa · reproducir
-              </button>
-            )}
-          </div>
+          </details>
+          <button
+            disabled={materialsBusy || !!materials}
+            onClick={() => onGenerateMaterials(pack())}
+            className="rounded-lg bg-[#195b4e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {materials ? "Materiales listos" : materialsBusy ? "Preparando materiales…" : "Generar materiales"}
+          </button>
+          {(hasEdits || editReviewBusy) && <button
+            disabled={editReviewBusy}
+            onClick={() => onReviewEdits(pack())}
+            className="rounded-lg bg-[#c36c3e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {editReviewBusy ? "Revisando cambios…" : "Revisar mis cambios"}
+          </button>}
         </div>
+        <details className="mt-3 rounded-xl bg-white/70 p-2 lg:hidden">
+          <summary className="cursor-pointer px-2 py-1 text-sm font-semibold text-stone-700">Índice del pack</summary>
+          <nav className="mt-2 grid grid-cols-2 gap-1" aria-label="Secciones del pack">
+            {nav.map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeSection === id ? "location" : undefined} className={`rounded-lg px-3 py-2 text-sm font-semibold ${activeSection === id ? "bg-[#edf5f0] text-[#195b4e]" : "text-stone-600 hover:bg-stone-100"}`}>{label}</a>)}
+          </nav>
+        </details>
         {hasEdits && (
           <p className="mt-2 text-xs text-stone-500">
             Tus cambios están en esta sesión y se incluyen al imprimir o
@@ -774,7 +750,16 @@ export function TeachingPackResults({
             {editReviewError}
           </p>
         )}
+        {onReplay && <button onClick={onReplay} className="mt-3 text-xs font-semibold text-stone-400 underline hover:text-stone-600">Vista previa · reproducir</button>}
       </div>
+      <div className="lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-10">
+      <aside className="no-print sticky top-28 hidden h-fit self-start lg:block">
+        <p className="px-3 text-xs font-bold uppercase tracking-[.14em] text-stone-400">Índice del pack</p>
+        <nav className="mt-3 space-y-1" aria-label="Secciones del pack">
+          {nav.map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeSection === id ? "location" : undefined} className={`block rounded-lg px-3 py-2 text-sm font-semibold transition ${activeSection === id ? "bg-[#edf5f0] text-[#195b4e]" : "text-stone-600 hover:bg-white"}`}>{label}</a>)}
+        </nav>
+      </aside>
+      <div className="min-w-0 space-y-10">
       {editReviewStatus && (
         <p className="no-print rounded-xl bg-[#edf5f0] px-4 py-3 text-sm font-medium text-[#195b4e]">
           {editReviewStatus}
@@ -1547,6 +1532,8 @@ export function TeachingPackResults({
           </ResultSection>
         </section>
       )}
+      </div>
+    </div>
     </div>
   );
 }
