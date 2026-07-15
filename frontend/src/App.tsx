@@ -20,15 +20,17 @@ export default function App() {
   const [evaluator, setEvaluator] = useState<Status>("pending");
   const [reviewer, setReviewer] = useState<Status>("pending");
   const [handoff, setHandoff] = useState<string | null>(null);
+  const [toolSummary, setToolSummary] = useState<string | null>(null);
   const [mockSpeed, setMockSpeed] = useState<MockSpeed>("normal");
   const [materials, setMaterials] = useState<MaterialPack | null>(null);
   const [materialsBusy, setMaterialsBusy] = useState(false);
 
   async function start(request: LessonRequest) {
     setScreen("generating"); setPlan(null); setGuide(null); setAssessment(null); setReview(null); setError(null);
-    setPlanner("working"); setDesigner("pending"); setEvaluator("pending"); setReviewer("pending"); setHandoff(null);
+    setPlanner("working"); setDesigner("pending"); setEvaluator("pending"); setReviewer("pending"); setHandoff(null); setToolSummary(null);
     try {
       await generateTeachingPackStream(request, (event) => {
+        if (event.type === "agent_tool_completed") setToolSummary(event.summary);
         if (event.type === "planner_completed") { setPlan(event.plan); setPlanner("done"); }
         if (event.type === "designer_started") setDesigner("working");
         if (event.type === "designer_completed") { setGuide(event.activities); setDesigner("done"); }
@@ -58,7 +60,7 @@ export default function App() {
     {screen === "request" && <div className="mx-auto mt-14 max-w-3xl"><p className="text-sm font-bold tracking-[.12em] text-[#c36c3e]">PLANIFICA CON CALMA</p><h1 className="mt-4 font-serif text-5xl text-stone-900">Una buena clase empieza con una intención clara.</h1><div className="mt-10">
       {isMockMode && <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-[#ead3bd] bg-[#fff8f2] p-4 text-sm"><b className="text-[#82421f]">Modo vista previa</b><span className="text-stone-600">Reproduce el pack de agua sin usar la API.</span><label className="ml-auto flex items-center gap-2">Velocidad <select value={mockSpeed} onChange={(event) => setMockSpeed(event.target.value as MockSpeed)} className="rounded-md border border-stone-300 bg-white px-2 py-1"><option value="slow">Lenta</option><option value="normal">Normal</option><option value="fast">Rápida</option></select></label></div>}
       <LessonRequestForm onSubmit={start} />{error && <p className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}</div></div>}
-    {screen === "generating" && <GenerationProgress planner={planner} designer={designer} assessment={evaluator} reviewer={reviewer} handoff={handoff} plan={plan} guide={guide} instrument={assessment} />}
+    {screen === "generating" && <GenerationProgress planner={planner} designer={designer} assessment={evaluator} reviewer={reviewer} handoff={handoff} toolSummary={toolSummary} plan={plan} guide={guide} instrument={assessment} />}
     {screen === "results" && plan && guide && assessment && review && <>{isMockMode && <div className="no-print mt-8 flex justify-end"><button onClick={() => setScreen("request")} className="rounded-lg bg-[#195b4e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12463c]">Reproducir generación</button></div>}<TeachingPackResults plan={plan} guide={guide} assessment={assessment} review={review} materials={materials} onGenerateMaterials={createMaterials} materialsBusy={materialsBusy} /></>}
   </div></main>;
 }

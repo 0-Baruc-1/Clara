@@ -39,6 +39,7 @@ export interface MaterialPack { title: string; materials: PrintableMaterial[]; c
 export interface ReviewFinding { id: string; severity: "bloqueante" | "importante" | "menor"; responsible_agent: "planner" | "designer" | "assessment" | "materials"; category: string; artifact_type: string; artifact_id: string; description: string; suggested_correction: string }
 export interface ReviewReport { status: "clean" | "findings_remaining"; summary: string; findings: ReviewFinding[]; correction: { attempted: boolean; target_agent?: string; outcome?: string } }
 export type GenerationEvent =
+  | { type: "agent_tool_completed"; agent: "planner" | "reviewer"; tool: string; summary: string }
   | { type: "planner_started"; message: string }
   | { type: "planner_completed"; plan: LessonPlan }
   | { type: "designer_started"; message: string }

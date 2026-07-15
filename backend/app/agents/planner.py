@@ -1,143 +1,40 @@
 import json
-import logging
-
 from openai import OpenAIError
 from pydantic import ValidationError
-
 from app.agents.base import Agent, AgentContext
 from app.core.config import settings
-from app.core.openai_client import SHARED_SYSTEM_CONTEXT, parse_structured_response
-from app.curriculum.models import CurriculumEntry
+from app.core.openai_client import SHARED_SYSTEM_CONTEXT, parse_structured_response_with_tools
 from app.curriculum.provider import CurriculumProvider, JsonCurriculumProvider
+from app.curriculum.tools import CURRICULUM_TOOLS, CurriculumToolFailure, curriculum_tool_handler
 from app.models.teaching_pack import CurriculumAlignment, CurriculumObjective, LessonPlan
 
-logger = logging.getLogger(__name__)
-
-
-class PlannerGenerationError(RuntimeError):
-    """Raised after the planner exhausts its bounded structured-output retries."""
-
+class PlannerGenerationError(RuntimeError): pass
 
 class PlannerAgent(Agent[LessonPlan]):
-    """Maps a teacher request to verified OA objectives and a lesson structure."""
-
     max_attempts = 2
-
-    def __init__(self, curriculum: CurriculumProvider | None = None) -> None:
-        self.curriculum = curriculum or JsonCurriculumProvider()
-
+    def __init__(self, curriculum: CurriculumProvider | None = None) -> None: self.curriculum = curriculum or JsonCurriculumProvider(); self.tool_trace: list[dict] = []
     async def run(self, context: AgentContext) -> LessonPlan:
-        candidates = self.curriculum.candidates(
-            context.request.subject, context.request.grade_level
-        )
-        system_context = self._system_context(context.system_context, candidates)
-        user_prompt = self._user_prompt(context, candidates)
-        model = settings.planner_model or context.model or settings.openai_model
-
-        last_error: Exception | None = None
-        for attempt in range(1, self.max_attempts + 1):
+        trace: list[dict] = []; self.tool_trace = trace; handler = curriculum_tool_handler(self.curriculum, trace)
+        prompt = f"""Planifica esta clase en español: {json.dumps(context.request.model_dump(exclude_none=True), ensure_ascii=False)}. Debes llamar buscar_objetivos antes de responder. Si citas un OA, debes llamar verificar_objetivo para cada código. Si la búsqueda no encuentra cobertura, usa curriculum_alignment.status='not_found' y objectives=[]; nunca inventes OA. El Planner define estructura, no coreografía. La suma de etapas debe igualar la duración."""
+        error = None
+        for attempt in range(self.max_attempts):
             try:
-                plan = await parse_structured_response(
-                    model=model,
-                    system_context=system_context,
-                    user_prompt=user_prompt,
-                    response_format=LessonPlan,
-                )
-                if plan is None:
-                    raise ValueError("El modelo no devolvió una salida estructurada.")
-                return self._verify_alignment(plan, candidates)
-            except (OpenAIError, ValidationError, ValueError) as error:
-                last_error = error
-                logger.warning("Fallo del planificador, intento %s/%s: %s", attempt, self.max_attempts, error)
-
-        raise PlannerGenerationError(
-            "No fue posible generar un plan de clase válido. Intenta nuevamente."
-        ) from last_error
-
-    def _system_context(
-        self, supplied_context: str, candidates: list[CurriculumEntry]
-    ) -> str:
-        # The stable shared text and complete provider data are both first, before
-        # variable teacher input, to maximize exact-prefix prompt-cache reuse.
-        shared = supplied_context or SHARED_SYSTEM_CONTEXT
-        return f"""{shared}
-
-REFERENCIA CURRICULAR ESTRUCTURADA (fuente autorizada para OA):
-{self.curriculum.cache_context()}
-
-INSTRUCCIONES DEL PLANIFICADOR:
-- Responde exclusivamente en español para contenido dirigido a docentes.
-- Usa solamente códigos y descripciones OA incluidos en la referencia curricular.
-- Si no hay candidatos para asignatura/curso, usa status 'not_found', objectives [], y una nota clara. Nunca inventes códigos OA.
-- Si existen candidatos pero ninguno corresponde al tema, usa status 'partial' u 'not_found' y explica la limitación.
-- La suma de duration_minutes de stages debe ser igual a duration_minutes.
-- El Planner define la estructura pedagógica: cada etapa contiene solamente nombre,
-  duración, propósito y verificación formativa opcional. No incluyas instrucciones
-  de docente, acciones de estudiantes ni coreografía de aula; eso corresponde al Designer.
-"""
-
-    def _user_prompt(
-        self, context: AgentContext, candidates: list[CurriculumEntry]
-    ) -> str:
-        request = context.request.model_dump(exclude_none=True)
-        candidate_json = json.dumps(
-            [candidate.model_dump(mode="json") for candidate in candidates],
-            ensure_ascii=False,
-        )
-        return f"""Planifica la siguiente clase para una docente.
-
-SOLICITUD DOCENTE:
-{json.dumps(request, ensure_ascii=False)}
-
-CANDIDATOS RECUPERADOS PARA ESTA SOLICITUD:
-{candidate_json}
-
-Devuelve un LessonPlan completo. El título, conceptos, materiales, prerrequisitos,
-objetivos y todas las etapas deben estar en español. No incluyas OA fuera de los
-candidatos recuperados. Si la solicitud no especifica duración, propone una duración
-razonable y distribúyela exactamente entre las etapas.
-"""
-
+                plan = await parse_structured_response_with_tools(model=settings.planner_model or context.model or settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nHerramientas curriculares disponibles: busca y verifica desde la fuente, no desde memoria.", user_prompt=prompt, response_format=LessonPlan, tools=CURRICULUM_TOOLS, tool_handler=handler)
+                return self._verify(plan, trace)
+            except (OpenAIError, ValidationError, ValueError, CurriculumToolFailure, RuntimeError) as exc:
+                error = exc; prompt += f"\nCORRECCIÓN OBLIGATORIA: {exc}."
+        raise PlannerGenerationError("No fue posible consultar y verificar el currículum. Intenta nuevamente.") from error
     @staticmethod
-    def _verify_alignment(
-        plan: LessonPlan, candidates: list[CurriculumEntry]
-    ) -> LessonPlan:
-        approved = {
-            entry.objective.code: entry.objective
-            for entry in candidates
-        }
-        alignment = plan.curriculum_alignment
-
-        if sum(stage.duration_minutes for stage in plan.stages) != plan.duration_minutes:
-            raise ValueError("La duración de las etapas no coincide con la duración total.")
-
-        if not approved:
-            if alignment.objectives:
-                raise ValueError("El modelo devolvió OA aunque no había datos curriculares candidatos.")
-            return plan.model_copy(
-                update={
-                    "curriculum_alignment": CurriculumAlignment(
-                        status="not_found",
-                        objectives=[],
-                        notes=alignment.notes or [
-                            "No hay Objetivos de Aprendizaje disponibles para la asignatura o curso solicitado."
-                        ],
-                    )
-                }
-            )
-
-        verified: list[CurriculumObjective] = []
-        for objective in alignment.objectives:
-            official = approved.get(objective.code)
-            if official is None:
-                raise ValueError(f"OA no presente en la fuente curricular: {objective.code}")
-            # Canonicalize official text/source rather than trusting model copies.
-            verified.append(official)
-
-        if alignment.status == "aligned" and not verified:
-            raise ValueError("Una alineación completa debe incluir al menos un OA verificado.")
-        return plan.model_copy(
-            update={
-                "curriculum_alignment": alignment.model_copy(update={"objectives": verified})
-            }
-        )
+    def _verify(plan: LessonPlan, trace: list[dict]) -> LessonPlan:
+        if not any(item["tool"] == "buscar_objetivos" for item in trace): raise ValueError("El Planner no consultó la base curricular.")
+        if sum(stage.duration_minutes for stage in plan.stages) != plan.duration_minutes: raise ValueError("La duración de las etapas no coincide con la duración total.")
+        verified = {item["arguments"]["codigo"].casefold(): item["result"] for item in trace if item["tool"] == "verificar_objetivo"}
+        objectives: list[CurriculumObjective] = []
+        for objective in plan.curriculum_alignment.objectives:
+            result = verified.get(objective.code.casefold())
+            if not result or not result["existe"]: raise ValueError(f"OA sin verificación en esta ejecución: {objective.code}")
+            official = result["objetivo"]["objective"] if "objective" in result["objetivo"] else result["objetivo"]
+            objectives.append(CurriculumObjective(code=official["code"], description=official["description"], source=official.get("source", "Fuente curricular")))
+        if not objectives:
+            return plan.model_copy(update={"curriculum_alignment": CurriculumAlignment(status="not_found", objectives=[], notes=plan.curriculum_alignment.notes or ["No se encontraron OA verificados para la solicitud."])})
+        return plan.model_copy(update={"curriculum_alignment": plan.curriculum_alignment.model_copy(update={"objectives": objectives})})

@@ -40,9 +40,9 @@ export const waterReview: ReviewReport = { status: "findings_remaining", summary
 ] };
 
 export const mockGenerationEvents: GenerationEvent[] = [
-  { type: "planner_started", message: "El Planificador está mapeando objetivos." }, { type: "planner_completed", plan: waterPlan },
+  { type: "planner_started", message: "El Planificador está mapeando objetivos." }, { type: "agent_tool_completed", agent: "planner", tool: "buscar_objetivos", summary: "Planificador consultó la base curricular · 2 OA encontrados" }, { type: "agent_tool_completed", agent: "planner", tool: "verificar_objetivo", summary: "Planificador verificó OA 12" }, { type: "planner_completed", plan: waterPlan },
   { type: "designer_started", message: "El Diseñador está creando actividades." }, { type: "designer_completed", activities: waterGuide },
   { type: "assessment_started", message: "El Evaluador está preparando la evaluación." }, { type: "assessment_completed", assessment: waterAssessment },
-  { type: "reviewer_started", message: "El Revisor está comprobando coherencia." }, { type: "reviewer_correcting", target_agent: "assessment", message: "El Revisor solicitó una corrección focalizada al assessment." },
+  { type: "reviewer_started", message: "El Revisor está comprobando coherencia." }, { type: "agent_tool_completed", agent: "reviewer", tool: "verificar_objetivo", summary: "Revisor verificó OA 12" }, { type: "reviewer_correcting", target_agent: "assessment", message: "El Revisor solicitó una corrección focalizada al assessment." },
   { type: "reviewer_completed", review: waterReview, activities: waterGuide, assessment: waterAssessment },
 ];
