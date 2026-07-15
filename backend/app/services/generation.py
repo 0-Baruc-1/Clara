@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 
 from app.agents.base import AgentContext
 from app.agents.designer import DesignerAgent, DesignerGenerationError
+from app.agents.assessment import AssessmentAgent, AssessmentGenerationError
 from app.agents.planner import PlannerAgent, PlannerGenerationError
 from app.core.config import settings
 from app.core.openai_client import SHARED_SYSTEM_CONTEXT
@@ -36,7 +37,10 @@ async def generate_teaching_pack_events(request: LessonRequest) -> AsyncIterator
         )
         guide = await DesignerAgent().run(context, plan)
         yield sse_event("designer_completed", {"activities": guide.model_dump(mode="json")})
-    except (PlannerGenerationError, DesignerGenerationError) as error:
+        yield sse_event("assessment_started", {"message": "El Evaluador está preparando el instrumento y la rúbrica."})
+        assessment = await AssessmentAgent().run(context, plan, guide)
+        yield sse_event("assessment_completed", {"assessment": assessment.model_dump(mode="json")})
+    except (PlannerGenerationError, DesignerGenerationError, AssessmentGenerationError) as error:
         yield sse_event("failure", {"message": str(error)})
     except RuntimeError as error:
         yield sse_event("failure", {"message": str(error)})

@@ -72,16 +72,60 @@ class ActivityGuideDraft(SpanishModel):
     targeted_learning_objectives: list[str] = Field(min_length=1)
     activities: list[ClassroomActivity] = Field(min_length=1)
 
+class AssessmentOption(SpanishModel):
+    label: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+
+
+class AssessmentItem(SpanishModel):
+    id: str = Field(min_length=1)
+    type: Literal["selección múltiple", "respuesta breve", "desarrollo"]
+    question: str = Field(min_length=1)
+    options: list[AssessmentOption] = Field(default_factory=list)
+    correct_option_label: str | None = None
+    expected_answer: str = Field(min_length=1)
+    points: int = Field(ge=1)
+    learning_objective: str = Field(min_length=1)
+    cognitive_level: Literal["recordar", "comprender", "aplicar", "analizar"]
+
+
+class RubricLevels(SpanishModel):
+    logrado: str = Field(min_length=1)
+    en_proceso: str = Field(min_length=1)
+    requiere_apoyo: str = Field(min_length=1)
+
+
 class RubricCriterion(SpanishModel):
-    criterion: str
-    achieved: str
-    developing: str
-    beginning: str
+    criterion: str = Field(min_length=1)
+    item_ids: list[str] = Field(min_length=1)
+    levels: RubricLevels
+
+
+class SpecificationRow(SpanishModel):
+    learning_objective: str
+    item_count: int
+    item_ids: list[str]
+    total_points: int
+    cognitive_levels: list[Literal["recordar", "comprender", "aplicar", "analizar"]]
+
 
 class Assessment(SpanishModel):
+    title: str = Field(min_length=1)
+    instructions: list[str] = Field(min_length=1)
+    suggested_application_minutes: int = Field(ge=1, le=480)
+    total_points: int = Field(ge=1)
+    specification_table: list[SpecificationRow] = Field(min_length=1)
+    items: list[AssessmentItem] = Field(min_length=1)
+    rubric: list[RubricCriterion] = Field(min_length=1)
+
+
+class AssessmentDraft(SpanishModel):
     title: str
-    instructions: list[str]
-    rubric: list[RubricCriterion]
+    instructions: list[str] = Field(min_length=1)
+    suggested_application_minutes: int = Field(ge=1, le=480)
+    total_points: int = Field(ge=1)
+    items: list[AssessmentItem] = Field(min_length=1)
+    rubric: list[RubricCriterion] = Field(min_length=1)
 
 class TeachingPack(SpanishModel):
     lesson_plan: LessonPlan
