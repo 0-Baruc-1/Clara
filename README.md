@@ -94,6 +94,57 @@ un pack de 6° básico sobre cambios de estado del agua, incluyendo el ciclo del
 Reviewer que devuelve una corrección al Evaluador. El selector de velocidad de
 la pantalla inicial permite alternar entre lenta, normal y rápida.
 
+## MCP: Clara como capa de verificación
+
+Clara expone su auditoría curricular como un servidor MCP adicional: no genera material; verifica afirmaciones curriculares y coherencia antes de que otro agente entregue el resultado a una docente.
+
+- `auditar_material_educativo(material, asignatura?, nivel?)`: reutiliza el importador y Reviewer de Clara y devuelve un `AuditReport` estructurado con confianza de lectura, notas de interpretación y hallazgos accionables.
+- `verificar_objetivo(codigo)`: consulta la fuente curricular. Si devuelve `existe: false`, el código no debe citarse como OA oficial; Clara indica eliminarlo o reemplazarlo.
+- `buscar_objetivos(asignatura, nivel, tema?)`: devuelve los OA oficiales disponibles para esa cobertura curricular.
+
+### Conectar por HTTP
+
+Al ejecutar la API de Clara, el MCP Streamable HTTP queda disponible en `http://localhost:8000/mcp`. Comparte la aplicación FastAPI con la API existente, sin reemplazarla.
+
+```json
+{
+  "mcpServers": {
+    "clara-verifica": { "url": "http://localhost:8000/mcp" }
+  }
+}
+```
+
+Para la demo, el MCP Inspector puede conectarse a esa URL. En un despliegue público, protege el endpoint con la capa de autorización propia del entorno antes de compartirlo.
+
+### Conectar por stdio
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python -m app.mcp_server
+```
+
+Ejemplo de configuración local en Windows:
+
+```json
+{
+  "mcpServers": {
+    "clara-verifica": {
+      "command": "C:\\ruta\\a\\Clara\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "app.mcp_server"],
+      "cwd": "C:\\ruta\\a\\Clara\\backend"
+    }
+  }
+}
+```
+
+### Ejemplo: generar y verificar antes de entregar
+
+1. Un agente genera una propuesta para Ciencias Naturales de 6° básico.
+2. Consulta `buscar_objetivos("Ciencias Naturales", "6° básico", "cambios de estado")` para escoger OA disponibles.
+3. Envía el borrador completo a `auditar_material_educativo`.
+4. Si recibe un hallazgo `bloqueante` para `CN06 OA 999`, elimina o reemplaza ese código. Si recibe una observación de ausencia, la trata como evidencia que Clara no pudo encontrar en el material leído, no como una acusación.
+
 ## How Codex built this
 
 El primer agente implementado es el **Planner**. Usa la Responses API con salida

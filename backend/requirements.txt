@@ -3,3 +3,5 @@ uvicorn[standard]>=0.30,<1.0
 # responses.parse() provides Pydantic structured-output parsing for the Planner.
 openai>=1.109.0,<3.0
 pydantic-settings>=2.0,<3.0
+# MCP adapter: stdio for local clients and Streamable HTTP mounted in FastAPI.
+mcp>=1.0,<2.0

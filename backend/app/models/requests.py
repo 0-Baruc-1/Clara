@@ -20,6 +20,8 @@ class AuditRequest(BaseModel):
     content: str = Field(min_length=20, max_length=50000)
     declared_kind: Literal["auto", "lesson_plan", "assessment", "both"] = "auto"
     teacher_session_id: str | None = Field(default=None, min_length=8, max_length=120)
+    subject: str | None = Field(default=None, max_length=100)
+    grade_level: str | None = Field(default=None, max_length=100)
 
 
 class EditedPackReviewRequest(BaseModel):

@@ -1,3 +1,4 @@
+import json
 from collections.abc import AsyncIterator
 from app.agents.base import AgentContext
 from app.agents.importer import ImporterAgent, ImportGenerationError
@@ -32,7 +33,7 @@ def frame_teacher_edit_findings(findings: list[ReviewFinding]) -> list[ReviewFin
     return framed
 
 async def audit_material_events(request: AuditRequest) -> AsyncIterator[str]:
-    context = AgentContext(request=LessonRequest(description="Auditoría de material externo."), system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model)
+    context = AgentContext(request=LessonRequest(description="Auditoría de material externo.", subject=request.subject, grade_level=request.grade_level), system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model)
     try:
         yield sse_event("audit_parse_started", {"message": "Clara está identificando objetivos, actividades y evaluación."})
         bundle = await ImporterAgent().run(context, request.content, request.declared_kind)
@@ -54,6 +55,19 @@ async def audit_material_events(request: AuditRequest) -> AsyncIterator[str]:
         yield sse_event("audit_completed", {"report": report.model_dump(mode="json")})
     except (ImportGenerationError, ReviewerGenerationError) as error:
         yield sse_event("audit_failure", {"message": str(error)})
+
+
+async def audit_material_report(request: AuditRequest) -> AuditReport:
+    """Consume the existing audit event flow for non-HTTP adapters such as MCP."""
+    async for frame in audit_material_events(request):
+        event = frame.split("\n", 1)[0].removeprefix("event: ")
+        payload_line = next((line for line in frame.splitlines() if line.startswith("data: ")), "data: {}")
+        payload = json.loads(payload_line.removeprefix("data: "))
+        if event == "audit_completed":
+            return AuditReport.model_validate(payload["report"])
+        if event == "audit_failure":
+            raise RuntimeError(payload["message"])
+    raise RuntimeError("La auditoría no devolvió un informe.")
 
 
 async def review_edited_pack_events(request: EditedPackReviewRequest) -> AsyncIterator[str]:
