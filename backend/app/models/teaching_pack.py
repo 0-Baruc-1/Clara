@@ -41,10 +41,38 @@ class LessonPlan(SpanishModel):
     materials: list[str]
     stages: list[LessonStage] = Field(min_length=1)
 
+class ActivityDifferentiation(SpanishModel):
+    support: str = Field(min_length=1)
+    extension: str = Field(min_length=1)
+
+
+class ClassroomActivity(SpanishModel):
+    stage_name: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    duration_minutes: int = Field(ge=1, le=480)
+    grouping: Literal["individual", "parejas", "grupos", "curso completo"]
+    purpose: str = Field(min_length=1)
+    teacher_instructions: list[str] = Field(min_length=1)
+    expected_student_output: str = Field(min_length=1)
+    materials: list[str] = Field(default_factory=list)
+    differentiation: ActivityDifferentiation
+
+
 class ActivityGuide(SpanishModel):
-    title: str
-    materials: list[str]
-    instructions: list[str]
+    title: str = Field(min_length=1)
+    overview: str = Field(min_length=1)
+    targeted_learning_objectives: list[str] = Field(min_length=1)
+    activities: list[ClassroomActivity] = Field(min_length=1)
+    materials_summary: list[str] = Field(default_factory=list)
+
+
+class ActivityGuideDraft(SpanishModel):
+    """Structured model response; material summary is derived in application code."""
+
+    title: str = Field(min_length=1)
+    overview: str = Field(min_length=1)
+    targeted_learning_objectives: list[str] = Field(min_length=1)
+    activities: list[ClassroomActivity] = Field(min_length=1)
 
 class RubricCriterion(SpanishModel):
     criterion: str
