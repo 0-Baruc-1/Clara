@@ -10,7 +10,7 @@ from app.models.requests import LessonRequest
 
 
 def print_time_summary(plan, guide) -> None:
-    """Show the exact per-stage constraint checked by the Designer."""
+    """Show the per-stage coverage and time constraints checked by Designer."""
     activity_minutes = {
         stage.name: sum(
             activity.duration_minutes
@@ -25,7 +25,8 @@ def print_time_summary(plan, guide) -> None:
         total = activity_minutes[stage.name]
         print(
             f"{stage.name}: presupuesto {stage.duration_minutes} min | "
-            f"actividades {total} min | {'OK' if total <= stage.duration_minutes else 'EXCEDE'}"
+            f"actividades {total} min | "
+            f"{'OK' if 0 < total <= stage.duration_minutes else 'INVÁLIDO'}"
         )
 
 

@@ -65,6 +65,10 @@ INSTRUCCIONES DEL DISEÑADOR:
 - Diseña actividades concretas, inclusivas y apropiadas para el nivel del plan.
 - Usa solo objetivos de aprendizaje ya incluidos en el plan recibido; no inventes OA ni objetivos nuevos.
 - Cada actividad debe indicar una etapa existente del plan y no puede exceder su tiempo disponible.
+- Diseña la coreografía completa del aula: pasos de la docente, producto esperado,
+  agrupamiento y diferenciación. Decide si cada etapa requiere una o varias actividades
+  según su propósito y duración; no copies automáticamente una actividad por etapa.
+- Cada etapa del plan debe tener al menos una actividad.
 - Entrega instrucciones numeradas o secuenciales que una docente pueda ejecutar.
 - Incluye una adaptación de apoyo y una extensión para cada actividad.
 - No generes materials_summary: el sistema lo deriva desde los materiales de las actividades.
@@ -78,8 +82,10 @@ INSTRUCCIONES DEL DISEÑADOR:
 
 Los valores de targeted_learning_objectives deben copiarse exactamente desde
 learning_objectives del plan. Los valores de stage_name deben copiarse exactamente
-desde stages[].name. La suma de duraciones de actividades en cada etapa no puede
-superar los minutos de esa etapa. Devuelve una guía completa, pero omite
+desde stages[].name. Todas las etapas del plan deben aparecer al menos una vez.
+La suma de duraciones de actividades en cada etapa no puede superar los minutos
+de esa etapa. Usa una o varias actividades por etapa según lo requiera el diseño,
+sin reflejar las etapas mecánicamente. Devuelve una guía completa, pero omite
 materials_summary porque el sistema la calculará.
 """
 
@@ -116,6 +122,13 @@ materials_summary porque el sistema la calculará.
                     f"Las actividades de '{stage_name}' usan {total_duration} minutos, "
                     f"pero la etapa tiene {stage_budget[stage_name]}."
                 )
+
+        missing_stages = set(stage_budget) - set(time_by_stage)
+        if missing_stages:
+            raise ValueError(
+                "La guía no incluye actividades para las etapas: "
+                + ", ".join(sorted(missing_stages))
+            )
 
         return ActivityGuide(
             title=draft.title,

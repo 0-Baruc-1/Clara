@@ -25,8 +25,6 @@ class LessonStage(SpanishModel):
     name: str = Field(min_length=1)
     duration_minutes: int = Field(ge=1, le=480)
     purpose: str = Field(min_length=1)
-    teacher_actions: list[str] = Field(min_length=1)
-    student_actions: list[str] = Field(min_length=1)
     formative_check: str | None = None
 
 class LessonPlan(SpanishModel):

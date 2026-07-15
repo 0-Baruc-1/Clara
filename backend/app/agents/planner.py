@@ -71,7 +71,9 @@ INSTRUCCIONES DEL PLANIFICADOR:
 - Si no hay candidatos para asignatura/curso, usa status 'not_found', objectives [], y una nota clara. Nunca inventes códigos OA.
 - Si existen candidatos pero ninguno corresponde al tema, usa status 'partial' u 'not_found' y explica la limitación.
 - La suma de duration_minutes de stages debe ser igual a duration_minutes.
-- Diseña etapas accionables, inclusivas y apropiadas para el nivel indicado.
+- El Planner define la estructura pedagógica: cada etapa contiene solamente nombre,
+  duración, propósito y verificación formativa opcional. No incluyas instrucciones
+  de docente, acciones de estudiantes ni coreografía de aula; eso corresponde al Designer.
 """
 
     def _user_prompt(
