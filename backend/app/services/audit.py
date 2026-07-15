@@ -7,6 +7,7 @@ from app.core.openai_client import SHARED_SYSTEM_CONTEXT
 from app.models.requests import AuditRequest, EditedPackReviewRequest, LessonRequest
 from app.models.teaching_pack import AuditReport, ReviewFinding
 from app.services.generation import sse_event, curriculum_tool_summary
+from app.services.coverage import record_reviewed_pack
 
 ABSENCE_CATEGORIES = {"objective_coherence", "grounding"}
 
@@ -44,6 +45,11 @@ async def audit_material_events(request: AuditRequest) -> AsyncIterator[str]:
         for call in reviewer.tool_trace:
             yield sse_event("agent_tool_completed", {"agent":"reviewer", "tool":call["tool"], "summary":curriculum_tool_summary("reviewer", call)})
         findings = conservative_findings(review.findings, bundle.activity_confidence, bundle.assessment_confidence)
+        try:
+            record_reviewed_pack(database_path=settings.coverage_db_path, session_id=request.teacher_session_id, source_type="imported_audit", plan=bundle.lesson_plan, activities=bundle.activities, review=review, verification_trace=reviewer.tool_trace)
+        except Exception:
+            # An audit report remains useful even when local memory cannot be written.
+            pass
         report = AuditReport(overall_status="requiere_atencion" if findings or bundle.parse_notes else "listo_para_revisar", source_summary=bundle.source_summary, parse_confidence=bundle.parse_confidence, parse_notes=bundle.parse_notes, findings=findings)
         yield sse_event("audit_completed", {"report": report.model_dump(mode="json")})
     except (ImportGenerationError, ReviewerGenerationError) as error:

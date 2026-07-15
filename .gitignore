@@ -12,3 +12,5 @@ dist/
 .vscode/
 
 backend/.vendor/
+backend/data/
+*.sqlite3

@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.openai_client import SHARED_SYSTEM_CONTEXT
 from app.models.requests import LessonRequest
 from app.models.teaching_pack import ReviewCorrection
+from app.services.coverage import record_reviewed_pack
 
 def sse_event(event: str, data: dict[str, object]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -60,6 +61,11 @@ async def generate_teaching_pack_events(request: LessonRequest) -> AsyncIterator
                 report = report.model_copy(update={"correction": ReviewCorrection(attempted=True, target_agent=target, outcome="regeneration_failed")})
         elif "planner" in targets:
             report = report.model_copy(update={"summary": report.summary + " Los hallazgos del Planner se muestran sin regeneración, porque cambiar el plan invalidaría los artefactos posteriores."})
+        try:
+            record_reviewed_pack(database_path=settings.coverage_db_path, session_id=request.teacher_session_id, source_type="generated", plan=plan, activities=guide, review=report, verification_trace=getattr(reviewer, "tool_trace", []))
+        except Exception:
+            # Coverage memory is helpful but must never prevent a teacher receiving their pack.
+            pass
         yield sse_event("reviewer_completed", {"review": report.model_dump(mode="json"), "activities": guide.model_dump(mode="json"), "assessment": assessment.model_dump(mode="json")})
     except (PlannerGenerationError, DesignerGenerationError, AssessmentGenerationError, ReviewerGenerationError) as error:
         yield sse_event("failure", {"message": str(error)})

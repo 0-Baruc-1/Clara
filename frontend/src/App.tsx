@@ -4,13 +4,14 @@ import { GenerationProgress } from "./components/GenerationProgress";
 import { LessonRequestForm } from "./components/LessonRequestForm";
 import { TeachingPackResults } from "./components/TeachingPackResults";
 import { AuditWorkspace } from "./components/AuditWorkspace";
+import { CoverageWorkspace } from "./components/CoverageWorkspace";
 import { generateMaterialsStream, generateTeachingPackStream, isMockMode, reviewEditedPackStream, type MockSpeed } from "./lib/api";
 import type { ActivityGuide, Assessment, LessonPlan, LessonRequest, MaterialPack, ReviewReport } from "./types/teachingPack";
 
 type Status = "pending" | "working" | "correcting" | "done";
 
 export default function App() {
-  const [screen, setScreen] = useState<"request" | "generating" | "results" | "audit">("request");
+  const [screen, setScreen] = useState<"request" | "generating" | "results" | "audit" | "coverage">("request");
   const [plan, setPlan] = useState<LessonPlan | null>(null);
   const [guide, setGuide] = useState<ActivityGuide | null>(null);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
@@ -72,11 +73,13 @@ export default function App() {
   const headerMarkState: ClaraMarkState = screen === "generating" ? handoff ? "correcting" : "working" : "resting";
   return <main className="min-h-screen bg-[#f7f4ed]"><div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
     <header className="no-print flex items-center gap-3"><ClaraMark state={headerMarkState} size="sm" /><div><p className="font-serif text-xl font-semibold text-stone-900">Clara</p><p className="text-xs text-stone-500">Compañera de planificación docente</p></div>{isMockMode && <span className="ml-auto rounded-full bg-[#fff0df] px-3 py-1 text-xs font-bold text-[#9a522b]">Vista previa</span>}</header>
+    {screen !== "coverage" && screen !== "generating" && <button className="no-print ml-auto mt-5 block text-sm font-semibold text-[#195b4e] underline" onClick={() => setScreen("coverage")}>Cobertura curricular</button>}
     {screen === "request" && <div className="mx-auto mt-14 max-w-3xl"><p className="text-sm font-bold tracking-[.12em] text-[#c36c3e]">PLANIFICA CON CALMA</p><h1 className="mt-4 font-serif text-5xl text-stone-900">Una buena clase empieza con una intención clara.</h1><button className="mt-5 text-sm font-semibold text-[#195b4e] underline" onClick={() => setScreen("audit")}>¿Ya tienes material? Audítalo con Clara</button><div className="mt-10">
       {isMockMode && <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-[#ead3bd] bg-[#fff8f2] p-4 text-sm"><b className="text-[#82421f]">Modo vista previa</b><span className="text-stone-600">Reproduce el pack de agua sin usar la API.</span><label className="ml-auto flex items-center gap-2">Velocidad <select value={mockSpeed} onChange={(event) => setMockSpeed(event.target.value as MockSpeed)} className="rounded-md border border-stone-300 bg-white px-2 py-1"><option value="slow">Lenta</option><option value="normal">Normal</option><option value="fast">Rápida</option></select></label></div>}
       <LessonRequestForm onSubmit={start} />{error && <p className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}</div></div>}
     {screen === "generating" && <GenerationProgress planner={planner} designer={designer} assessment={evaluator} reviewer={reviewer} handoff={handoff} toolSummary={toolSummary} plan={plan} guide={guide} instrument={assessment} />}
     {screen === "audit" && <><button className="no-print mt-8 text-sm font-semibold text-[#195b4e] underline" onClick={() => setScreen("request")}>← Volver</button><AuditWorkspace /></>}
+    {screen === "coverage" && <CoverageWorkspace mock={isMockMode} onBack={() => setScreen(plan ? "results" : "request")} />}
     {screen === "results" && plan && guide && assessment && review && <TeachingPackResults plan={plan} guide={guide} assessment={assessment} review={review} materials={materials} onPlanChange={changedPlan} onGuideChange={changedGuide} onAssessmentChange={changedAssessment} onMaterialsChange={changedMaterials} onGenerateMaterials={createMaterials} materialsBusy={materialsBusy} onReviewEdits={reviewEdits} editReviewBusy={editReviewBusy} editReviewError={editReviewError} editReviewStatus={editReviewStatus} hasEdits={hasEdits} onReplay={isMockMode ? () => setScreen("request") : undefined} />}
   </div></main>;
 }

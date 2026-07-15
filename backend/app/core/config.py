@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     materials_model: str | None = None
     reviewer_model: str | None = None
     frontend_origin: str = "http://localhost:5173"
+    coverage_db_path: str = "data/clara_coverage.sqlite3"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 @lru_cache

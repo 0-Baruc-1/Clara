@@ -9,6 +9,7 @@ class LessonRequest(BaseModel):
     topic: str | None = Field(default=None, max_length=300)
     duration_minutes: int | None = Field(default=None, ge=10, le=480)
     notes: str | None = Field(default=None, max_length=2000)
+    teacher_session_id: str | None = Field(default=None, min_length=8, max_length=120)
 
 class MaterialsRequest(BaseModel):
     lesson_plan: LessonPlan
@@ -18,6 +19,7 @@ class MaterialsRequest(BaseModel):
 class AuditRequest(BaseModel):
     content: str = Field(min_length=20, max_length=50000)
     declared_kind: Literal["auto", "lesson_plan", "assessment", "both"] = "auto"
+    teacher_session_id: str | None = Field(default=None, min_length=8, max_length=120)
 
 
 class EditedPackReviewRequest(BaseModel):

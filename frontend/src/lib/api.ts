@@ -1,6 +1,8 @@
-import type { ActivityGuide, Assessment, GenerationEvent, LessonPlan, LessonRequest, MaterialPack } from "../types/teachingPack";
+import type { ActivityGuide, Assessment, CoverageOverview, GenerationEvent, LessonPlan, LessonRequest, MaterialPack } from "../types/teachingPack";
 import { mockGenerationEvents } from "../fixtures/waterTeachingPack";
 import { mockMaterialsEvents } from "../fixtures/waterMaterials";
+import { mockCoverageOverview } from "../fixtures/semesterCoverage";
+import { teacherSessionId } from "./teacherSession";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 export const isMockMode = import.meta.env.VITE_MOCK === "true" || new URLSearchParams(window.location.search).has("mock");
@@ -23,7 +25,7 @@ export async function generateTeachingPackStream(
   const response = await fetch(`${apiBaseUrl}/generate`, {
     method: "POST",
     headers: { Accept: "text/event-stream", "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    body: JSON.stringify({ ...request, teacher_session_id: teacherSessionId() }),
   });
   if (!response.ok || !response.body) throw new Error("No pudimos iniciar la generación. Inténtalo nuevamente.");
 
@@ -54,10 +56,18 @@ export async function generateMaterialsStream(pack: { lesson_plan: LessonPlan; a
 }
 
 export async function auditMaterialStream(content: string, onEvent: (event: GenerationEvent) => void): Promise<void> {
-  const response = await fetch(`${apiBaseUrl}/audit`, { method: "POST", headers: { Accept: "text/event-stream", "Content-Type": "application/json" }, body: JSON.stringify({ content, declared_kind: "auto" }) });
+  const response = await fetch(`${apiBaseUrl}/audit`, { method: "POST", headers: { Accept: "text/event-stream", "Content-Type": "application/json" }, body: JSON.stringify({ content, declared_kind: "auto", teacher_session_id: teacherSessionId() }) });
   if (!response.ok || !response.body) throw new Error("No pudimos iniciar la auditoría.");
   const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
   while (true) { const { value, done } = await reader.read(); buffer += decoder.decode(value, { stream: !done }); const frames = buffer.split("\n\n"); buffer = frames.pop() ?? ""; for (const frame of frames) { const type = frame.match(/^event: (.+)$/m)?.[1]; const data = frame.match(/^data: (.+)$/m)?.[1]; if (type && data) onEvent({ type, ...JSON.parse(data) } as GenerationEvent); } if (done) break; }
+}
+
+export async function curriculumCoverage(subject: string, gradeLevel: string, mock = isMockMode): Promise<CoverageOverview> {
+  if (mock) return mockCoverageOverview;
+  const parameters = new URLSearchParams({ session_id: teacherSessionId(), subject, grade_level: gradeLevel });
+  const response = await fetch(`${apiBaseUrl}/coverage?${parameters}`);
+  if (!response.ok) throw new Error("No pudimos recuperar la cobertura curricular de esta sesión.");
+  return response.json() as Promise<CoverageOverview>;
 }
 
 export async function reviewEditedPackStream(pack: { lesson_plan: LessonPlan; activities: ActivityGuide; assessment: Assessment; materials: MaterialPack | null }, onEvent: (event: GenerationEvent) => void, options: { mock?: boolean; mockSpeed?: MockSpeed } = {}): Promise<void> {

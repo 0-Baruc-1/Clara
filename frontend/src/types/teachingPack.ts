@@ -40,6 +40,8 @@ export interface ReviewFinding { id: string; severity: "bloqueante" | "important
 export interface ReviewReport { status: "clean" | "findings_remaining"; summary: string; findings: ReviewFinding[]; correction: { attempted: boolean; target_agent?: string; outcome?: string } }
 export interface ParseNote { severity: "importante" | "menor"; artifact_type: string; artifact_id?: string; field?: string; message: string; source_excerpt?: string }
 export interface AuditReport { overall_status: "listo_para_revisar" | "requiere_atencion"; source_summary: string; parse_confidence: "alta" | "media" | "baja"; parse_notes: ParseNote[]; findings: ReviewFinding[] }
+export interface CoverageObjective { code: string; description: string; coverage_count: number; declared_unverified_count: number; declared_without_activity_evidence_count: number; pack_dates: string[]; status: "trabajado" | "aun_no_visto" }
+export interface CoverageOverview { subject: string; grade_level: string; reviewed_pack_count: number; scope_note: string; objectives: CoverageObjective[]; longitudinal_findings: ReviewFinding[] }
 export type GenerationEvent =
   | { type: "agent_tool_completed"; agent: "planner" | "reviewer"; tool: string; summary: string }
   | { type: "planner_started"; message: string }
