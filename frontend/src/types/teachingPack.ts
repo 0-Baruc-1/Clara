@@ -38,6 +38,8 @@ export interface MaterialCoverage { activity_id: string; source_material_label: 
 export interface MaterialPack { title: string; materials: PrintableMaterial[]; coverage: MaterialCoverage[] }
 export interface ReviewFinding { id: string; severity: "bloqueante" | "importante" | "menor"; responsible_agent: "planner" | "designer" | "assessment" | "materials"; category: string; artifact_type: string; artifact_id: string; description: string; suggested_correction: string }
 export interface ReviewReport { status: "clean" | "findings_remaining"; summary: string; findings: ReviewFinding[]; correction: { attempted: boolean; target_agent?: string; outcome?: string } }
+export interface ParseNote { severity: "importante" | "menor"; artifact_type: string; artifact_id?: string; field?: string; message: string; source_excerpt?: string }
+export interface AuditReport { overall_status: "listo_para_revisar" | "requiere_atencion"; source_summary: string; parse_confidence: "alta" | "media" | "baja"; parse_notes: ParseNote[]; findings: ReviewFinding[] }
 export type GenerationEvent =
   | { type: "agent_tool_completed"; agent: "planner" | "reviewer"; tool: string; summary: string }
   | { type: "planner_started"; message: string }
@@ -55,4 +57,9 @@ export type GenerationEvent =
   | { type: "materials_reviewer_correcting"; message: string }
   | { type: "materials_reviewer_completed"; materials: MaterialPack; review: ReviewReport }
   | { type: "materials_failure"; message: string }
+  | { type: "audit_parse_started"; message: string }
+  | { type: "audit_parse_completed"; bundle: unknown }
+  | { type: "audit_reviewer_started"; message: string }
+  | { type: "audit_completed"; report: AuditReport }
+  | { type: "audit_failure"; message: string }
   | { type: "failure"; message: string };

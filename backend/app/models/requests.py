@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Literal
 from app.models.teaching_pack import ActivityGuide, Assessment, LessonPlan
 
 class LessonRequest(BaseModel):
@@ -13,3 +14,7 @@ class MaterialsRequest(BaseModel):
     lesson_plan: LessonPlan
     activities: ActivityGuide
     assessment: Assessment
+
+class AuditRequest(BaseModel):
+    content: str = Field(min_length=20, max_length=50000)
+    declared_kind: Literal["auto", "lesson_plan", "assessment", "both"] = "auto"

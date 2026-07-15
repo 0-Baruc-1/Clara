@@ -190,3 +190,28 @@ class TeachingPack(SpanishModel):
     activities: ActivityGuide
     assessment: Assessment
     review_notes: list[str] = Field(default_factory=list)
+
+class ParseNote(SpanishModel):
+    severity: Literal["importante", "menor"]
+    artifact_type: Literal["plan", "activity", "assessment_item"]
+    artifact_id: str | None = None
+    field: str | None = None
+    message: str
+    source_excerpt: str | None = None
+
+class ImportedAuditBundle(SpanishModel):
+    source_summary: str
+    parse_confidence: Literal["alta", "media", "baja"]
+    activity_confidence: Literal["alta", "media", "baja"]
+    assessment_confidence: Literal["alta", "media", "baja"]
+    parse_notes: list[ParseNote] = Field(default_factory=list)
+    lesson_plan: LessonPlan | None = None
+    activities: ActivityGuide | None = None
+    assessment: Assessment | None = None
+
+class AuditReport(SpanishModel):
+    overall_status: Literal["listo_para_revisar", "requiere_atencion"]
+    source_summary: str
+    parse_confidence: Literal["alta", "media", "baja"]
+    parse_notes: list[ParseNote] = Field(default_factory=list)
+    findings: list[ReviewFinding] = Field(default_factory=list)

@@ -52,3 +52,10 @@ export async function generateMaterialsStream(pack: { lesson_plan: LessonPlan; a
   const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
   while (true) { const { value, done } = await reader.read(); buffer += decoder.decode(value, { stream: !done }); const frames = buffer.split("\n\n"); buffer = frames.pop() ?? ""; for (const frame of frames) { const type = frame.match(/^event: (.+)$/m)?.[1]; const data = frame.match(/^data: (.+)$/m)?.[1]; if (type && data) onEvent({ type, ...JSON.parse(data) } as GenerationEvent); } if (done) break; }
 }
+
+export async function auditMaterialStream(content: string, onEvent: (event: GenerationEvent) => void): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/audit`, { method: "POST", headers: { Accept: "text/event-stream", "Content-Type": "application/json" }, body: JSON.stringify({ content, declared_kind: "auto" }) });
+  if (!response.ok || !response.body) throw new Error("No pudimos iniciar la auditoría.");
+  const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
+  while (true) { const { value, done } = await reader.read(); buffer += decoder.decode(value, { stream: !done }); const frames = buffer.split("\n\n"); buffer = frames.pop() ?? ""; for (const frame of frames) { const type = frame.match(/^event: (.+)$/m)?.[1]; const data = frame.match(/^data: (.+)$/m)?.[1]; if (type && data) onEvent({ type, ...JSON.parse(data) } as GenerationEvent); } if (done) break; }
+}
