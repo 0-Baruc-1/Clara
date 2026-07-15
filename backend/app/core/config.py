@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     planner_model: str | None = None
     designer_model: str | None = None
     assessment_model: str | None = None
+    materials_model: str | None = None
     reviewer_model: str | None = None
     frontend_origin: str = "http://localhost:5173"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

@@ -83,7 +83,16 @@ FRONTEND_ORIGIN=http://localhost:5173
 
 ```dotenv
 VITE_API_BASE_URL=http://localhost:8000
+VITE_MOCK=false
 ```
+
+### Vista previa sin API
+
+Para recorrer la interfaz sin consumir créditos ni iniciar el backend, agrega
+`VITE_MOCK=true` a `frontend/.env` o abre la app con `?mock`. Clara reproducirá
+un pack de 6° básico sobre cambios de estado del agua, incluyendo el ciclo del
+Reviewer que devuelve una corrección al Evaluador. El selector de velocidad de
+la pantalla inicial permite alternar entre lenta, normal y rápida.
 
 ## How Codex built this
 
@@ -113,3 +122,10 @@ observable. Valida cobertura total de objetivos, puntajes y correspondencia entr
 En selección múltiple, la alternativa correcta vive en un campo estructurado
 (`correct_option_label`) separado del criterio explicativo; los reintentos reciben
 el error específico de validación para corregirlo.
+
+La corrección del Reviewer tiene una prueba determinística sin llamadas al modelo:
+
+```powershell
+cd backend
+python -m unittest tests.test_review_correction
+```

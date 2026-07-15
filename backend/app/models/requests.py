@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from app.models.teaching_pack import ActivityGuide, Assessment, LessonPlan
 
 class LessonRequest(BaseModel):
     description: str = Field(min_length=10, max_length=4000, description="Descripción libre de la clase.")
@@ -7,3 +8,8 @@ class LessonRequest(BaseModel):
     topic: str | None = Field(default=None, max_length=300)
     duration_minutes: int | None = Field(default=None, ge=10, le=480)
     notes: str | None = Field(default=None, max_length=2000)
+
+class MaterialsRequest(BaseModel):
+    lesson_plan: LessonPlan
+    activities: ActivityGuide
+    assessment: Assessment

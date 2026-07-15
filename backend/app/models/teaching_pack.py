@@ -128,18 +128,52 @@ class AssessmentDraft(SpanishModel):
     items: list[AssessmentItem] = Field(min_length=1)
     rubric: list[RubricCriterion] = Field(min_length=1)
 
+class PrintableBlock(SpanishModel):
+    type: Literal["texto", "tabla", "tarjetas", "organizador", "preguntas"]
+    title: str | None = None
+    content: str | None = None
+    columns: list[str] = Field(default_factory=list)
+    rows: list[list[str]] = Field(default_factory=list)
+    cards: list[dict[str, str]] = Field(default_factory=list)
+    fields: list[dict[str, str]] = Field(default_factory=list)
+    questions: list[dict[str, str | int]] = Field(default_factory=list)
+
+class PrintableMaterial(SpanishModel):
+    id: str = Field(min_length=1)
+    activity_id: str = Field(min_length=1)
+    source_material_label: str = Field(min_length=1)
+    type: Literal["tabla_registro", "tarjetas_vocabulario", "organizador_grafico", "ficha_trabajo", "ticket_salida"]
+    title: str = Field(min_length=1)
+    student_instructions: list[str] = Field(min_length=1)
+    content: list[PrintableBlock] = Field(min_length=1)
+
+class MaterialCoverage(SpanishModel):
+    activity_id: str
+    source_material_label: str
+    fulfillment: Literal["material_generado", "evaluacion_estudiante", "sin_cobertura"]
+    material_id: str | None = None
+
+class MaterialPack(SpanishModel):
+    title: str
+    materials: list[PrintableMaterial] = Field(default_factory=list)
+    coverage: list[MaterialCoverage] = Field(default_factory=list)
+
+class MaterialPackDraft(SpanishModel):
+    title: str
+    materials: list[PrintableMaterial] = Field(default_factory=list)
+
 class ReviewFinding(SpanishModel):
     id: str
     severity: Literal["bloqueante", "importante", "menor"]
-    responsible_agent: Literal["planner", "designer", "assessment"]
-    category: Literal["grounding", "objective_coherence", "pedagogical_coherence", "curriculum_honesty", "internal_contradiction"]
-    artifact_type: Literal["plan", "activity", "assessment_item", "rubric"]
+    responsible_agent: Literal["planner", "designer", "assessment", "materials"]
+    category: Literal["grounding", "objective_coherence", "pedagogical_coherence", "curriculum_honesty", "internal_contradiction", "coverage"]
+    artifact_type: Literal["plan", "activity", "assessment_item", "rubric", "material"]
     artifact_id: str
     description: str
     suggested_correction: str
 class ReviewCorrection(SpanishModel):
     attempted: bool = False
-    target_agent: Literal["designer", "assessment"] | None = None
+    target_agent: Literal["designer", "assessment", "materials"] | None = None
     outcome: Literal["corrected", "findings_remaining", "regeneration_failed"] | None = None
 class ReviewReport(SpanishModel):
     status: Literal["clean", "findings_remaining"]

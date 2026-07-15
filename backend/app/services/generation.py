@@ -7,15 +7,24 @@ from app.agents.designer import DesignerAgent, DesignerGenerationError
 from app.agents.assessment import AssessmentAgent, AssessmentGenerationError
 from app.agents.reviewer import ReviewerAgent, ReviewerGenerationError
 from app.agents.planner import PlannerAgent, PlannerGenerationError
+from app.agents.materials import MaterialsAgent, MaterialsGenerationError
 from app.core.config import settings
 from app.core.openai_client import SHARED_SYSTEM_CONTEXT
-from app.models.requests import LessonRequest
-from app.models.teaching_pack import ReviewCorrection
+from app.models.requests import LessonRequest, MaterialsRequest
+from app.models.teaching_pack import MaterialPack, ReviewCorrection, ReviewFinding
 
 
 def sse_event(event: str, data: dict[str, object]) -> str:
     """Serialize one SSE frame; JSON stays on one data line."""
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+def _append_coverage_findings(report, materials: MaterialPack):
+    findings = list(report.findings)
+    existing = {(finding.category, finding.artifact_id) for finding in findings}
+    for coverage in materials.coverage:
+        if coverage.fulfillment == "sin_cobertura" and ("coverage", coverage.source_material_label) not in existing:
+            findings.append(ReviewFinding(id=f"coverage-{coverage.activity_id}", severity="importante", responsible_agent="materials", category="coverage", artifact_type="material", artifact_id=coverage.source_material_label, description=f"La actividad {coverage.activity_id} solicita '{coverage.source_material_label}', pero no hay una hoja imprimible que la cubra.", suggested_correction="Genera o adapta esta hoja antes de usar la actividad."))
+    return report.model_copy(update={"status": "findings_remaining" if findings else "clean", "findings": findings})
 
 
 async def generate_teaching_pack_events(request: LessonRequest) -> AsyncIterator[str]:

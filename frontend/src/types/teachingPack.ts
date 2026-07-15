@@ -17,6 +17,7 @@ export interface LessonPlan {
 }
 export interface ActivityDifferentiation { support: string; extension: string }
 export interface ClassroomActivity {
+  id: string;
   stage_name: string; title: string; duration_minutes: number;
   grouping: "individual" | "parejas" | "grupos" | "curso completo";
   purpose: string; teacher_instructions: string[]; expected_student_output: string;
@@ -31,6 +32,12 @@ export interface AssessmentItem { id: string; type: "selección múltiple" | "re
 export interface RubricCriterion { criterion: string; item_ids: string[]; levels: { logrado: string; en_proceso: string; requiere_apoyo: string } }
 export interface SpecificationRow { learning_objective: string; item_count: number; item_ids: string[]; total_points: number; cognitive_levels: string[] }
 export interface Assessment { title: string; instructions: string[]; suggested_application_minutes: number; total_points: number; specification_table: SpecificationRow[]; items: AssessmentItem[]; rubric: RubricCriterion[] }
+export interface PrintableBlock { type: "texto" | "tabla" | "tarjetas" | "organizador" | "preguntas"; title?: string; content?: string; columns: string[]; rows: string[][]; cards: Record<string, string>[]; fields: Record<string, string>[]; questions: Record<string, string | number>[] }
+export interface PrintableMaterial { id: string; activity_id: string; source_material_label: string; type: string; title: string; student_instructions: string[]; content: PrintableBlock[] }
+export interface MaterialCoverage { activity_id: string; source_material_label: string; fulfillment: "material_generado" | "evaluacion_estudiante" | "sin_cobertura"; material_id?: string }
+export interface MaterialPack { title: string; materials: PrintableMaterial[]; coverage: MaterialCoverage[] }
+export interface ReviewFinding { id: string; severity: "bloqueante" | "importante" | "menor"; responsible_agent: "planner" | "designer" | "assessment" | "materials"; category: string; artifact_type: string; artifact_id: string; description: string; suggested_correction: string }
+export interface ReviewReport { status: "clean" | "findings_remaining"; summary: string; findings: ReviewFinding[]; correction: { attempted: boolean; target_agent?: string; outcome?: string } }
 export type GenerationEvent =
   | { type: "planner_started"; message: string }
   | { type: "planner_completed"; plan: LessonPlan }
@@ -38,4 +45,13 @@ export type GenerationEvent =
   | { type: "designer_completed"; activities: ActivityGuide }
   | { type: "assessment_started"; message: string }
   | { type: "assessment_completed"; assessment: Assessment }
+  | { type: "reviewer_started"; message: string }
+  | { type: "reviewer_correcting"; target_agent: string; message: string }
+  | { type: "reviewer_completed"; review: ReviewReport; activities: ActivityGuide; assessment: Assessment }
+  | { type: "materials_started"; message: string }
+  | { type: "materials_completed"; materials: MaterialPack }
+  | { type: "materials_reviewer_started"; message: string }
+  | { type: "materials_reviewer_correcting"; message: string }
+  | { type: "materials_reviewer_completed"; materials: MaterialPack; review: ReviewReport }
+  | { type: "materials_failure"; message: string }
   | { type: "failure"; message: string };

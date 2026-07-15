@@ -1,0 +1,48 @@
+import type { ActivityGuide, Assessment, GenerationEvent, LessonPlan, ReviewReport } from "../types/teachingPack";
+
+export const waterPlan: LessonPlan = {
+  title: "Cambios de estado del agua: observar, explicar y aplicar", subject: "Ciencias Naturales", grade_level: "6° básico", duration_minutes: 90,
+  curriculum_alignment: { status: "aligned", notes: ["Objetivo recuperado del currículum de Ciencias Naturales para 6° básico."], objectives: [{ code: "OA 12", description: "Demostrar, mediante la investigación experimental, los cambios de estado de la materia, como fusión, evaporación, ebullición, condensación, solidificación y sublimación.", source: "Bases Curriculares Chile" }] },
+  learning_objectives: ["Explicar los cambios de estado del agua a partir de observaciones de experiencias simples.", "Relacionar temperatura y transferencia de calor con fusión, evaporación y condensación."],
+  key_concepts: ["fusión", "evaporación", "condensación", "temperatura", "transferencia de calor"], prerequisite_knowledge: ["Distinguir sólido, líquido y gas.", "Registrar observaciones en una tabla simple."], materials: ["cubos de hielo", "vasos transparentes", "agua tibia", "film plástico", "hoja de registro", "lápices"],
+  stages: [
+    { name: "Inicio", duration_minutes: 15, purpose: "Activar ideas previas y formular preguntas sobre el agua en distintos estados.", formative_check: "Explicación oral breve de un cambio de estado cotidiano." },
+    { name: "Exploración", duration_minutes: 35, purpose: "Observar y registrar evidencias de fusión, evaporación y condensación.", formative_check: "Tabla de observación completada en parejas." },
+    { name: "Síntesis", duration_minutes: 20, purpose: "Construir una explicación causal usando los conceptos trabajados.", formative_check: "Diagrama con flechas de cambio y calor." },
+    { name: "Evaluación", duration_minutes: 20, purpose: "Comprobar la comprensión individual de los cambios observados.", formative_check: "Ticket de salida." },
+  ],
+};
+
+export const waterGuide: ActivityGuide = {
+  title: "Guía de actividades: cambios de estado del agua", overview: "Experiencias breves y seguras para observar cambios de estado y explicarlos con evidencia.", targeted_learning_objectives: waterPlan.learning_objectives, materials_summary: waterPlan.materials,
+  activities: [
+    { id: "act-1", stage_name: "Inicio", title: "La historia del vaso frío", duration_minutes: 15, grouping: "curso completo", purpose: "Activar explicaciones iniciales.", teacher_instructions: ["Muestra un vaso frío con gotas por fuera.", "Pide hipótesis y anótalas sin corregir todavía."], expected_student_output: "Hipótesis oral sobre el origen de las gotas.", materials: ["vaso transparente", "agua con hielo"], differentiation: { support: "Ofrece las palabras vapor, gota y frío como apoyo visual.", extension: "Pide comparar dos explicaciones posibles." } },
+    { id: "act-2", stage_name: "Exploración", title: "Tres evidencias del agua", duration_minutes: 20, grouping: "parejas", purpose: "Registrar cambios observables.", teacher_instructions: ["Entrega una hoja de registro por pareja.", "Guía la observación de un cubo de hielo que se derrite y vapor que toca film frío.", "Solicita describir sólo lo que ven."], expected_student_output: "Tabla con evidencias de fusión y condensación.", materials: ["cubos de hielo", "vasos transparentes", "agua tibia", "film plástico", "hoja de registro"], differentiation: { support: "Entrega una tabla con inicios de frase.", extension: "Pide agregar una predicción sobre qué ocurrirá al cambiar la temperatura." } },
+    { id: "act-3", stage_name: "Exploración", title: "Ordena la evidencia", duration_minutes: 15, grouping: "grupos", purpose: "Relacionar observación y concepto.", teacher_instructions: ["Reparte tarjetas de evidencia y conceptos.", "Pide justificar cada pareja de tarjetas."], expected_student_output: "Tres asociaciones justificadas entre evidencia y cambio de estado.", materials: ["tarjetas de evidencia"], differentiation: { support: "Usa tarjetas con color compartido.", extension: "Incluye una evidencia ambigua para discutir." } },
+    { id: "act-4", stage_name: "Síntesis", title: "Mapa de los cambios", duration_minutes: 20, grouping: "parejas", purpose: "Explicar relaciones entre estados y calor.", teacher_instructions: ["Modela una flecha entre sólido y líquido.", "Pide completar un diagrama con palabras y flechas.", "Invita a dos parejas a explicar su mapa."], expected_student_output: "Diagrama de cambios de estado con flechas y referencias al calor.", materials: ["hoja de trabajo", "lápices"], differentiation: { support: "Entrega una plantilla con los estados ya escritos.", extension: "Pide incluir una explicación de condensación usando partículas." } },
+    { id: "act-5", stage_name: "Evaluación", title: "Ticket de salida", duration_minutes: 20, grouping: "individual", purpose: "Comprobar comprensión individual con situaciones cercanas.", teacher_instructions: ["Entrega el instrumento individual.", "Lee las instrucciones y recuerda usar la evidencia observada.", "Recoge el ticket al finalizar."], expected_student_output: "Respuestas individuales a tres ítems breves.", materials: ["instrumento impreso", "lápiz"], differentiation: { support: "Lee el enunciado en voz alta una vez.", extension: "Pide justificar con una evidencia observada." } },
+  ],
+};
+
+export const waterAssessment: Assessment = {
+  title: "Evaluación breve: cambios de estado del agua", instructions: ["Responde de forma individual.", "Usa lo que observaste en las actividades de la clase."], suggested_application_minutes: 15, total_points: 8,
+  specification_table: [{ learning_objective: waterPlan.learning_objectives[0], item_count: 2, item_ids: ["item-1", "item-2"], total_points: 5, cognitive_levels: ["comprender", "aplicar"] }, { learning_objective: waterPlan.learning_objectives[1], item_count: 1, item_ids: ["item-3"], total_points: 3, cognitive_levels: ["comprender"] }],
+  items: [
+    { id: "item-1", type: "selección múltiple", question: "En la experiencia con el cubo de hielo, ¿qué cambio observaste?", options: [{ label: "A", text: "Fusión: el hielo pasó de sólido a líquido." }, { label: "B", text: "Condensación: el agua pasó de gas a líquido." }, { label: "C", text: "Evaporación: el agua pasó de líquido a gas." }], correct_option_label: "A", expected_answer: "Reconoce la fusión observada en el cubo de hielo.", points: 2, learning_objective: waterPlan.learning_objectives[0], cognitive_level: "comprender" },
+    { id: "item-2", type: "respuesta breve", question: "El vapor del agua tibia tocó el film frío y aparecieron gotas. Explica qué ocurrió.", options: [], expected_answer: "Explica que el vapor se enfrió y se condensó formando gotas, vinculándolo con la evidencia observada.", points: 3, learning_objective: waterPlan.learning_objectives[0], cognitive_level: "aplicar" },
+    { id: "item-3", type: "respuesta breve", question: "Una bebida fría forma gotas por fuera del vaso. ¿Qué cambio de estado explica esas gotas?", options: [], expected_answer: "Identifica condensación y explica que el vapor del aire se enfría al tocar el vaso.", points: 3, learning_objective: waterPlan.learning_objectives[1], cognitive_level: "comprender" },
+  ], rubric: [{ criterion: "Explicación de cambios de estado con evidencia", item_ids: ["item-1", "item-2", "item-3"], levels: { logrado: "Nombra el cambio y lo explica usando una evidencia o relación de temperatura.", en_proceso: "Nombra parcialmente el cambio, pero su explicación no conecta con la evidencia.", requiere_apoyo: "No identifica el cambio de estado o propone una explicación sin relación con lo observado." } }],
+};
+
+export const waterReview: ReviewReport = { status: "findings_remaining", summary: "La corrección eliminó el contexto experimental inventado. Quedan dos observaciones para revisar antes de reutilizar el pack.", correction: { attempted: true, target_agent: "assessment", outcome: "findings_remaining" }, findings: [
+  { id: "rev-1", severity: "importante", responsible_agent: "planner", category: "curriculum_honesty", artifact_type: "lesson_plan", artifact_id: "OA 12", description: "El objetivo de la clase menciona evaporación, pero la actividad no deja una evidencia suficientemente explícita de ese cambio.", suggested_correction: "Al reutilizar el plan, incorpora una observación guiada de evaporación o ajusta el objetivo declarado." },
+  { id: "rev-2", severity: "menor", responsible_agent: "assessment", category: "pedagogical_coherence", artifact_type: "assessment_item", artifact_id: "item-3", description: "El ítem aplica el concepto a una situación cotidiana nueva, lo que es válido, pero conviene pedir una conexión explícita con la observación de condensación realizada en clase.", suggested_correction: "Añade una frase que invite a comparar el vaso frío con el film frío de la experiencia." },
+] };
+
+export const mockGenerationEvents: GenerationEvent[] = [
+  { type: "planner_started", message: "El Planificador está mapeando objetivos." }, { type: "planner_completed", plan: waterPlan },
+  { type: "designer_started", message: "El Diseñador está creando actividades." }, { type: "designer_completed", activities: waterGuide },
+  { type: "assessment_started", message: "El Evaluador está preparando la evaluación." }, { type: "assessment_completed", assessment: waterAssessment },
+  { type: "reviewer_started", message: "El Revisor está comprobando coherencia." }, { type: "reviewer_correcting", target_agent: "assessment", message: "El Revisor solicitó una corrección focalizada al assessment." },
+  { type: "reviewer_completed", review: waterReview, activities: waterGuide, assessment: waterAssessment },
+];
