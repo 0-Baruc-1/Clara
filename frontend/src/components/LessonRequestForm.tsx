@@ -1,11 +1,19 @@
-import { useState } from "react";
-export function LessonRequestForm({ onSubmit, isLoading }: { onSubmit: (description: string) => Promise<void>; isLoading: boolean }) {
-  const [description, setDescription] = useState(""); const valid = description.trim().length >= 10;
-  return <form className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm sm:p-8" onSubmit={(e) => { e.preventDefault(); if (valid) void onSubmit(description.trim()); }}>
-    <label htmlFor="lesson-description" className="text-base font-semibold text-stone-900">Cuéntale a Clara sobre tu clase</label>
-    <p className="mt-2 text-sm leading-6 text-stone-500">Incluye curso, asignatura, tema, duración y cualquier necesidad de tus estudiantes.</p>
-    <textarea id="lesson-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej.: Necesito una clase de 90 minutos para 6° básico sobre el ciclo del agua, con una actividad práctica y evaluación de salida." className="mt-5 min-h-36 w-full resize-y rounded-2xl border border-stone-200 bg-stone-50 p-4 text-stone-800 outline-none transition placeholder:text-stone-400 focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/10" />
-    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs text-stone-400">{description.length}/4000 caracteres</span><button type="submit" disabled={!valid || isLoading} className="rounded-full bg-emerald-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-40">{isLoading ? "Preparando tu pack…" : "Crear pack de enseñanza"}</button></div>
+import { useState, type FormEvent } from "react";
+import type { LessonRequest } from "../types/teachingPack";
+
+export function LessonRequestForm({ onSubmit }: { onSubmit: (request: LessonRequest) => Promise<void> }) {
+  const [subject, setSubject] = useState("Ciencias Naturales");
+  const [grade, setGrade] = useState("6° básico");
+  const [topic, setTopic] = useState("Cambios de estado del agua");
+  const [duration, setDuration] = useState(90);
+  const [notes, setNotes] = useState("Actividad práctica y una verificación formativa al cierre.");
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const description = `Clase de ${subject} para ${grade}, ${duration} minutos. Tema: ${topic}. ${notes}`;
+    void onSubmit({ description, subject, grade_level: grade, topic, duration_minutes: duration, notes });
+  };
+  return <form className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_18px_55px_-28px_rgba(28,60,51,.35)] sm:p-9" onSubmit={submit}>
+    <div className="grid gap-5 sm:grid-cols-2"><label className="field"><span>Asignatura</span><input value={subject} onChange={(e) => setSubject(e.target.value)} required /></label><label className="field"><span>Curso</span><input value={grade} onChange={(e) => setGrade(e.target.value)} required /></label><label className="field sm:col-span-2"><span>¿Qué quieres enseñar?</span><input value={topic} onChange={(e) => setTopic(e.target.value)} required /></label><label className="field"><span>Duración</span><select value={duration} onChange={(e) => setDuration(Number(e.target.value))}><option value={45}>45 minutos</option><option value={60}>60 minutos</option><option value={90}>90 minutos</option></select></label><div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900">Clara buscará OA reales en la base curricular disponible y mostrará cualquier límite con transparencia.</div><label className="field sm:col-span-2"><span>Notas para Clara <em>(opcional)</em></span><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Necesidades del curso, recursos disponibles, énfasis pedagógico…" /></label></div>
+    <div className="mt-7 flex flex-col gap-3 border-t border-stone-100 pt-6 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-stone-500">Plan, actividades y criterios curriculares en un solo flujo.</p><button className="rounded-full bg-[#195b4e] px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-[#10473c]">Crear mi clase <span aria-hidden>→</span></button></div>
   </form>;
 }
-

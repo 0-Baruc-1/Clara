@@ -37,6 +37,12 @@ npm run dev
 
 Open the URL Vite prints (normally `http://localhost:5173`). The API is available at `http://localhost:8000`; interactive API docs are at `/docs`.
 
+`POST /generate` returns an SSE-formatted stream so the web app can show the
+Planner and Designer as they complete. It emits `planner_started`,
+`planner_completed`, `designer_started`, `designer_completed`, or `failure`.
+The browser uses `fetch` to consume the stream because the request contains the
+lesson JSON; native `EventSource` only supports GET requests.
+
 ### Test the Planner with the bundled curriculum sample
 
 After configuring `OPENAI_API_KEY` in `backend/.env`, run:
@@ -50,6 +56,14 @@ python examples/run_planner.py
 The example requests a 6° básico Ciencias Naturales lesson on changes of state
 of water. It should only cite OA codes in `app/curriculum/sample_objectives.json`.
 
+To run the Planner followed by the Designer and print its timing checks:
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python examples/run_pipeline.py
+```
+
 ## Environment variables
 
 `backend/.env` (not committed):
@@ -57,6 +71,11 @@ of water. It should only cite OA codes in `app/curriculum/sample_objectives.json
 ```dotenv
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_MODEL=gpt-5.6-terra
+# Optional per-agent overrides; unset values fall back to OPENAI_MODEL.
+PLANNER_MODEL=gpt-5.6-terra
+DESIGNER_MODEL=gpt-5.6-terra
+ASSESSMENT_MODEL=gpt-5.6-terra
+REVIEWER_MODEL=gpt-5.6-luna
 FRONTEND_ORIGIN=http://localhost:5173
 ```
 
@@ -77,3 +96,20 @@ compartidas y la referencia curricular se colocan antes de la solicitud variable
 para favorecer prompt caching. Cada agente admite su propio modelo mediante
 variables de entorno: Terra para la planificación y generación principal, y Luna
 por defecto para la revisión de consistencia de menor costo.
+
+El **Designer** consume el LessonPlan validado y solicita una salida estructurada
+con GPT-5.6 Terra (configurable mediante `DESIGNER_MODEL`). Verifica que cada
+actividad use una etapa existente, que cada etapa tenga al menos una actividad,
+que no excedan el presupuesto de tiempo y que se limiten a objetivos ya presentes
+en el plan. Esta separación evita que los agentes se reescriban entre sí: el
+**Planner** define el arco pedagógico, objetivos y presupuestos de tiempo, mientras
+el **Designer** crea la coreografía de aula (pasos, agrupamiento, productos y
+diferenciación). El resumen de materiales se deriva determinísticamente de las
+actividades para evitar inconsistencias.
+
+El **Assessment** crea el instrumento final, sus respuestas esperadas y una rúbrica
+observable. Valida cobertura total de objetivos, puntajes y correspondencia entre
+ítems y rúbrica; la tabla de especificaciones agregada se deriva de los ítems.
+En selección múltiple, la alternativa correcta vive en un campo estructurado
+(`correct_option_label`) separado del criterio explicativo; los reintentos reciben
+el error específico de validación para corregirlo.
