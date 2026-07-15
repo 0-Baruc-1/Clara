@@ -4,6 +4,7 @@ import { ResultSection } from "./ResultSection";
 const List = ({ items }: { items: string[] }) => (
   <ul className="space-y-2">{items.map((item) => <li key={item}>• {item}</li>)}</ul>
 );
+const printTarget = (target: "full" | "student" | "materials") => { document.body.dataset.printTarget = target; window.print(); window.setTimeout(() => delete document.body.dataset.printTarget, 0); };
 
 function ReviewNotes({ findings }: { findings: ReviewFinding[] }) {
   if (!findings.length) return null;
@@ -33,7 +34,7 @@ export function TeachingPackResults({ plan, guide, assessment, review, materials
           <p className="mt-1">{passed ? "Plan, actividades y evaluación fueron revisados en conjunto antes de llegar a ti." : "Estas observaciones son sobre el material generado por Clara, no sobre tu solicitud. Puedes revisarlas con calma antes de usar el pack."}</p>
         </div>
       </div>
-      <button className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50" onClick={() => window.print()}>Imprimir pack</button>
+      <div className="flex flex-wrap gap-2"><button className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50" onClick={() => printTarget("full")}>Imprimir pack</button><button className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50" onClick={() => printTarget("student")}>Evaluación estudiante</button>{materials && <button className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50" onClick={() => printTarget("materials")}>Materiales</button>}</div>
     </div>
 
     <ResultSection eyebrow="Plan de clase" title="Propósito y ruta de aprendizaje">
@@ -55,6 +56,9 @@ export function TeachingPackResults({ plan, guide, assessment, review, materials
       {assessment.items.map((item) => <article key={item.id} className="mt-5 rounded-xl bg-[#fbfaf6] p-4"><p><b>{item.id}. {item.question}</b> ({item.points} pts)</p>{item.options.map((option) => <p key={option.label} className={option.label === item.correct_option_label ? "font-bold text-[#195b4e]" : ""}>{option.label}. {option.text}{option.label === item.correct_option_label && " ✓"}</p>)}{item.correct_option_label && <p><b>Alternativa correcta:</b> {item.correct_option_label}</p>}<p><b>Criterio / respuesta esperada:</b> {item.expected_answer}</p></article>)}
       {assessment.rubric.map((criterion) => <article key={criterion.criterion} className="mt-4 rounded-xl border p-4"><b>{criterion.criterion}</b><p>Logrado: {criterion.levels.logrado}</p><p>En proceso: {criterion.levels.en_proceso}</p><p>Requiere apoyo: {criterion.levels.requiere_apoyo}</p></article>)}
       <ReviewNotes findings={findingsFor("assessment")} />
+    </ResultSection></div>
+    <div className="student-assessment print-student print-break"><ResultSection eyebrow="Evaluación para estudiantes" title={assessment.title}>
+      <List items={assessment.instructions} />{assessment.items.map((item) => <article key={item.id} className="mt-5"><p><b>{item.id}. {item.question}</b> ({item.points} pts)</p>{item.options.map((option) => <p key={option.label}>○ {option.label}. {option.text}</p>)}{item.type !== "selección múltiple" && <div className="mt-3 h-20 border-b border-stone-400" />}</article>)}
     </ResultSection></div>
     <div className="print-break"><ResultSection eyebrow="Materiales imprimibles" title={materials?.title ?? "Hojas para el aula"}>
       {!materials && <div className="no-print rounded-xl bg-[#fff8f2] p-5"><p>Genera las hojas solicitadas por las actividades. Clara las revisará antes de entregártelas.</p><button disabled={materialsBusy} onClick={onGenerateMaterials} className="mt-4 rounded-lg bg-[#195b4e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{materialsBusy ? "Materiales y Revisor trabajando…" : "Generar materiales imprimibles"}</button></div>}

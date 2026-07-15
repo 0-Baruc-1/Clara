@@ -14,28 +14,29 @@
   .field input, .field select, .field textarea { @apply w-full rounded-xl border border-stone-200 bg-[#fbfaf6] px-4 py-3 font-normal text-stone-800 outline-none transition focus:border-[#195b4e] focus:ring-4 focus:ring-[#195b4e]/10; }
   .label { @apply mb-2 text-xs font-bold uppercase tracking-[.12em] text-stone-500; }
 }
-.clara-mark { overflow: visible; }
-.clara-mark__body { fill: #195b4e; transition: fill 500ms ease, d 500ms ease; }
-.clara-mark__thread { stroke: #f7f4ed; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
-.clara-mark__seed { fill: #e8b07a; transition: fill 500ms ease; }
-.clara-mark--working .clara-mark__thread { animation: clara-travel 1.8s ease-in-out infinite; }
-.clara-mark--working .clara-mark__seed { animation: clara-breathe 1.8s ease-in-out infinite; }
-.clara-mark--done .clara-mark__body { fill: #27785f; }
-.clara-mark--done .clara-mark__seed { fill: #f2c94c; }
-.clara-mark--correcting .clara-mark__body { fill: #a65a31; }
-.clara-mark--correcting .clara-mark__thread { animation: clara-travel 1.15s ease-in-out infinite reverse; }
-.clara-mark--correcting .clara-mark__seed { fill: #f0c28e; animation: clara-breathe 1.15s ease-in-out infinite; }
+.clara-mark { overflow: visible; filter: drop-shadow(0 3px 5px rgb(7 91 80 / .12)); }
+.clara-mark__body { fill: #eeabb7; stroke: #075b50; stroke-width: 4; stroke-linejoin: round; transition: fill 420ms ease; }
+.clara-mark__face { fill: #fff9ed; stroke: #075b50; stroke-width: 3; }
+.clara-mark__tools, .clara-mark__focused, .clara-mark__pleased, .clara-mark__surprised, .clara-mark__alerts { display: none; }
+.clara-mark--working .clara-mark__tools, .clara-mark--working .clara-mark__focused, .clara-mark--done .clara-mark__tools, .clara-mark--done .clara-mark__pleased, .clara-mark--correcting .clara-mark__tools, .clara-mark--correcting .clara-mark__surprised, .clara-mark--correcting .clara-mark__alerts { display: block; }
+.clara-mark--working .clara-mark__neutral, .clara-mark--done .clara-mark__neutral, .clara-mark--correcting .clara-mark__neutral { display: none; }
+.clara-mark__sprout { transform-origin: 60px 24px; animation: clara-sprout 3.5s ease-in-out infinite; }
+.clara-mark--working .clara-mark__pencil { animation: clara-pencil 1.4s ease-in-out infinite; transform-origin: 42px 88px; }
+.clara-mark--done .clara-mark__body { fill: #f2b6c1; }
+.clara-mark--correcting .clara-mark__body { fill: #f1a6b1; }
+.clara-mark--correcting .clara-mark__alerts { animation: clara-alert 1.2s ease-in-out infinite; transform-origin: 100px 46px; }
 .agent-activity, .agent-return { height: 3px; overflow: hidden; border-radius: 999px; background: #d9e9e0; }
 .agent-activity span, .agent-return span { display: block; width: 34%; height: 100%; border-radius: inherit; }
 .agent-activity span { background: #27785f; animation: clara-sweep 1.5s ease-in-out infinite; }
 .agent-return { background: #f3d5be; }
 .agent-return span { background: #b96636; animation: clara-sweep 1.1s ease-in-out infinite reverse; }
 .agent-reveal { animation: clara-reveal 460ms ease-out both; }
-@keyframes clara-travel { 0%,100% { stroke-dashoffset: 1; opacity: .45; } 50% { stroke-dashoffset: 0; opacity: 1; } }
-@keyframes clara-breathe { 0%,100% { transform: scale(.82); transform-origin: center; } 50% { transform: scale(1.13); transform-origin: center; } }
+@keyframes clara-sprout { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(3deg); } }
+@keyframes clara-pencil { 0%,100% { transform: rotate(-3deg) translateY(0); } 50% { transform: rotate(4deg) translateY(2px); } }
+@keyframes clara-alert { 0%,100% { opacity: .45; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.04); } }
 @keyframes clara-sweep { from { transform: translateX(-120%); } to { transform: translateX(380%); } }
 @keyframes clara-reveal { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .clara-mark__thread, .clara-mark__seed, .agent-activity span, .agent-return span, .agent-reveal { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .clara-mark__sprout, .clara-mark__pencil, .clara-mark__alerts, .agent-activity span, .agent-return span, .agent-reveal { animation: none !important; } }
 @media print {
   @page { margin: 18mm; }
   body { background: white !important; color: #1c1917 !important; font-size: 10.5pt; }
@@ -44,4 +45,9 @@
   .teaching-pack section { box-shadow: none !important; border-color: #d6d3d1 !important; break-inside: avoid; }
   .print-break { break-before: page; page-break-before: always; }
   .print-break article { break-inside: avoid; }
+  .student-assessment { display: none; }
+  body[data-print-target="student"] .teaching-pack > * { display: none !important; }
+  body[data-print-target="student"] .student-assessment { display: block !important; }
+  body[data-print-target="materials"] .teaching-pack > * { display: none !important; }
+  body[data-print-target="materials"] .teaching-pack > :last-child { display: block !important; }
 }

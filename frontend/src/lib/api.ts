@@ -1,5 +1,6 @@
 import type { ActivityGuide, Assessment, GenerationEvent, LessonPlan, LessonRequest } from "../types/teachingPack";
 import { mockGenerationEvents } from "../fixtures/waterTeachingPack";
+import { mockMaterialsEvents } from "../fixtures/waterMaterials";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 export const isMockMode = import.meta.env.VITE_MOCK === "true" || new URLSearchParams(window.location.search).has("mock");
@@ -44,7 +45,8 @@ export async function generateTeachingPackStream(
   }
 }
 
-export async function generateMaterialsStream(pack: { lesson_plan: LessonPlan; activities: ActivityGuide; assessment: Assessment }, onEvent: (event: GenerationEvent) => void): Promise<void> {
+export async function generateMaterialsStream(pack: { lesson_plan: LessonPlan; activities: ActivityGuide; assessment: Assessment }, onEvent: (event: GenerationEvent) => void, options: { mock?: boolean; mockSpeed?: MockSpeed } = {}): Promise<void> {
+  if (options.mock ?? isMockMode) { for (const event of mockMaterialsEvents) { onEvent(event); await wait(mockDelays[options.mockSpeed ?? "normal"]); } return; }
   const response = await fetch(`${apiBaseUrl}/generate-materials`, { method: "POST", headers: { Accept: "text/event-stream", "Content-Type": "application/json" }, body: JSON.stringify(pack) });
   if (!response.ok || !response.body) throw new Error("No pudimos preparar los materiales.");
   const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";

@@ -48,7 +48,7 @@ export default function App() {
   async function createMaterials() {
     if (!plan || !guide || !assessment) return;
     setMaterialsBusy(true); setError(null);
-    try { await generateMaterialsStream({ lesson_plan: plan, activities: guide, assessment }, (event) => { if (event.type === "materials_completed" || event.type === "materials_reviewer_completed") setMaterials(event.materials); if (event.type === "materials_failure") setError(event.message); }); }
+    try { await generateMaterialsStream({ lesson_plan: plan, activities: guide, assessment }, (event) => { if (event.type === "materials_completed" || event.type === "materials_reviewer_completed") setMaterials(event.materials); if (event.type === "materials_failure") setError(event.message); }, { mock: isMockMode, mockSpeed }); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "No fue posible preparar los materiales."); } finally { setMaterialsBusy(false); }
   }
 

@@ -1,0 +1,13 @@
+import type { GenerationEvent, MaterialPack } from "../types/teachingPack";
+
+export const waterMaterials: MaterialPack = { title: "Materiales imprimibles: cambios de estado del agua", coverage: [{ activity_id: "act-2", source_material_label: "hoja de registro", fulfillment: "material_generado", material_id: "mat-1" }, { activity_id: "act-3", source_material_label: "tarjetas de evidencia", fulfillment: "material_generado", material_id: "mat-2" }, { activity_id: "act-4", source_material_label: "hoja de trabajo", fulfillment: "material_generado", material_id: "mat-3" }], materials: [
+  { id: "mat-1", activity_id: "act-2", source_material_label: "hoja de registro", type: "tabla_registro", title: "Registro de evidencias del agua", student_instructions: ["Observa con tu pareja.", "Describe antes de explicar."], content: [{ type: "tabla", title: "Lo que observamos", columns: ["Situación", "¿Qué vimos?", "Cambio de estado"], rows: [["Cubo de hielo", "", ""], ["Film frío sobre agua tibia", "", ""]], cards: [], fields: [], questions: [] }] },
+  { id: "mat-2", activity_id: "act-3", source_material_label: "tarjetas de evidencia", type: "tarjetas_vocabulario", title: "Tarjetas: evidencia y concepto", student_instructions: ["Une cada evidencia con el concepto."], content: [{ type: "tarjetas", columns: [], rows: [], fields: [], questions: [], cards: [{ front: "El hielo se transforma en agua.", back: "Fusión" }, { front: "Aparecen gotas bajo el film frío.", back: "Condensación" }] }] },
+  { id: "mat-3", activity_id: "act-4", source_material_label: "hoja de trabajo", type: "organizador_grafico", title: "Mapa de cambios de estado", student_instructions: ["Completa las flechas y el papel del calor."], content: [{ type: "organizador", title: "Sólido → Líquido → Gas", content: "Usa flechas, conceptos y una breve explicación.", columns: [], rows: [], cards: [], questions: [], fields: [{ label: "Sólido a líquido", guide: "" }, { label: "Gas a líquido", guide: "" }] }] },
+] };
+
+export const mockMaterialsEvents: GenerationEvent[] = [
+  { type: "materials_started", message: "El agente de Materiales está preparando hojas." }, { type: "materials_completed", materials: waterMaterials },
+  { type: "materials_reviewer_started", message: "El Revisor está comprobando los materiales." }, { type: "materials_reviewer_correcting", message: "El Revisor solicitó un ajuste de una hoja." },
+  { type: "materials_reviewer_completed", materials: waterMaterials, review: { status: "clean", summary: "Materiales corregidos y coherentes.", findings: [], correction: { attempted: true, target_agent: "materials", outcome: "corrected" } } },
+];
