@@ -1,9 +1,125 @@
 import { useState } from "react";
 import { auditMaterialStream } from "../lib/api";
-import type { AuditReport } from "../types/teachingPack";
+import type { AuditReport, ReviewFinding } from "../types/teachingPack";
+
+function displayArtifact(finding: ReviewFinding) {
+  const item = /^item-(\d+)$/i.exec(finding.artifact_id);
+  if (item) return `Ítem ${item[1]}`;
+  if (/^(activity|act)-/i.test(finding.artifact_id)) return "Actividad";
+  if (/^(material|mat)-/i.test(finding.artifact_id)) {
+    return "Material imprimible";
+  }
+  return finding.artifact_type === "objective"
+    ? "Objetivo de aprendizaje"
+    : "Elemento revisado";
+}
+
+function teacherFacingText(value: string) {
+  return value
+    .replace(/\bitem-(\d+)\b/gi, "Ítem $1")
+    .replace(/\b(?:activity|act)-[\w-]+\b/gi, "Actividad")
+    .replace(/\b(?:material|mat)-[\w-]+\b/gi, "Material imprimible");
+}
 
 export function AuditWorkspace() {
-  const [content, setContent] = useState(""); const [status, setStatus] = useState<string | null>(null); const [report, setReport] = useState<AuditReport | null>(null); const [error, setError] = useState<string | null>(null);
-  async function audit() { setError(null); setReport(null); try { await auditMaterialStream(content, (event) => { if (event.type === "audit_parse_started" || event.type === "audit_reviewer_started") setStatus(event.message); if (event.type === "agent_tool_completed") setStatus(event.summary); if (event.type === "audit_completed") { setReport(event.report); setStatus(null); } if (event.type === "audit_failure") setError(event.message); }); } catch (caught) { setError(caught instanceof Error ? caught.message : "No fue posible auditar el material."); } }
-  return <section className="mx-auto mt-12 max-w-3xl"><p className="text-sm font-bold tracking-[.12em] text-[#c36c3e]">AUDITA MATERIAL EXISTENTE</p><h1 className="mt-3 font-serif text-4xl text-stone-900">Una segunda opinión, basada en lo que Clara pudo leer.</h1><textarea className="mt-7 min-h-72 w-full rounded-2xl border border-stone-200 bg-white p-5" placeholder="Pega aquí una planificación, guía o evaluación…" value={content} onChange={(event) => setContent(event.target.value)} /><button disabled={content.trim().length < 20} onClick={audit} className="mt-4 rounded-lg bg-[#195b4e] px-5 py-3 font-semibold text-white disabled:opacity-50">Auditar material</button>{status && <p className="mt-5 rounded-xl bg-emerald-50 p-4 text-[#195b4e]">{status}</p>}{error && <p className="mt-5 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}{report && <article className="mt-8 space-y-5 rounded-2xl bg-white p-7 shadow-sm"><div className="flex justify-between gap-4"><div><h2 className="font-serif text-3xl text-stone-900">Informe de auditoría</h2><p className="mt-2">Confianza de lectura: <b>{report.parse_confidence}</b></p></div><button className="no-print rounded-lg border px-3 py-2 text-sm" onClick={() => window.print()}>Imprimir</button></div><p>{report.source_summary}</p>{report.parse_notes.map((note, index) => <p key={index} className="rounded-lg bg-amber-50 p-3 text-sm">Clara no pudo interpretar con certeza: {note.message}</p>)}{report.findings.map((finding) => <div key={finding.id} className="rounded-xl border p-4"><b>{finding.severity} · {finding.artifact_id}</b><p className="mt-2">{finding.description}</p><p className="mt-2 text-sm"><b>Sugerencia:</b> {finding.suggested_correction}</p></div>)}</article>}</section>;
+  const [content, setContent] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [report, setReport] = useState<AuditReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function audit() {
+    setError(null);
+    setReport(null);
+    try {
+      await auditMaterialStream(content, (event) => {
+        if (
+          event.type === "audit_parse_started" ||
+          event.type === "audit_reviewer_started"
+        ) {
+          setStatus(event.message);
+        }
+        if (event.type === "agent_tool_completed") setStatus(event.summary);
+        if (event.type === "audit_completed") {
+          setReport(event.report);
+          setStatus(null);
+        }
+        if (event.type === "audit_failure") setError(event.message);
+      });
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "No fue posible auditar el material.",
+      );
+    }
+  }
+
+  return (
+    <section className="mx-auto mt-12 max-w-3xl">
+      <p className="text-sm font-bold tracking-[.12em] text-[#c36c3e]">
+        AUDITA MATERIAL EXISTENTE
+      </p>
+      <h1 className="mt-3 font-serif text-4xl text-stone-900">
+        Una segunda opinión, basada en lo que Clara pudo leer.
+      </h1>
+      <textarea
+        className="mt-7 min-h-72 w-full rounded-2xl border border-stone-200 bg-white p-5"
+        placeholder="Pega aquí una planificación, guía o evaluación…"
+        value={content}
+        onChange={(event) => setContent(event.target.value)}
+      />
+      <button
+        disabled={content.trim().length < 20}
+        onClick={audit}
+        className="mt-4 rounded-lg bg-[#195b4e] px-5 py-3 font-semibold text-white disabled:opacity-50"
+      >
+        Auditar material
+      </button>
+      {status && (
+        <p className="mt-5 rounded-xl bg-emerald-50 p-4 text-[#195b4e]">
+          {status}
+        </p>
+      )}
+      {error && (
+        <p className="mt-5 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>
+      )}
+      {report && (
+        <article className="mt-8 space-y-5 rounded-2xl bg-white p-7 shadow-sm">
+          <div className="flex justify-between gap-4">
+            <div>
+              <h2 className="font-serif text-3xl text-stone-900">
+                Informe de auditoría
+              </h2>
+              <p className="mt-2">
+                Confianza de lectura: <b>{report.parse_confidence}</b>
+              </p>
+            </div>
+            <button
+              className="no-print rounded-lg border px-3 py-2 text-sm"
+              onClick={() => window.print()}
+            >
+              Imprimir
+            </button>
+          </div>
+          <p>{report.source_summary}</p>
+          {report.parse_notes.map((note, index) => (
+            <p key={index} className="rounded-lg bg-amber-50 p-3 text-sm">
+              Clara no pudo interpretar con certeza: {note.message}
+            </p>
+          ))}
+          {report.findings.map((finding) => (
+            <div key={finding.id} className="rounded-xl border p-4">
+              <b>
+                {finding.severity} · {displayArtifact(finding)}
+              </b>
+              <p className="mt-2">{teacherFacingText(finding.description)}</p>
+              <p className="mt-2 text-sm">
+                <b>Sugerencia:</b> {teacherFacingText(finding.suggested_correction)}
+              </p>
+            </div>
+          ))}
+        </article>
+      )}
+    </section>
+  );
 }

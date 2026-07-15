@@ -35,6 +35,10 @@
 .activity-stage__heading p { margin: 0; color: #3b7969; font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .activity-stage__heading h3 { margin: .2rem 0; color: #1c1917; font-size: 1.7rem; }
 .activity-stage__heading span { color: #57534e; font-size: .92rem; }
+.specification-table th { background: #edf5f0; color: #195b4e; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.specification-table th, .specification-table td { border-bottom: 1px solid #e7e5e4; padding: .8rem 1rem; vertical-align: top; }
+.specification-table td:first-child { min-width: 18rem; color: #292524; }
+.specification-table tbody tr:last-child td { border-bottom: 0; }
 @keyframes clara-sprout { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(3deg); } }
 @keyframes clara-pencil { 0%,100% { transform: rotate(-3deg) translateY(0); } 50% { transform: rotate(4deg) translateY(2px); } }
 @keyframes clara-alert { 0%,100% { opacity: .45; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.04); } }
@@ -52,6 +56,9 @@
   .material-sheet { break-inside: avoid; page-break-inside: avoid; }
   .material-sheet + .material-sheet { break-before: page; page-break-before: always; }
   #materiales, #materiales > section, .material-sheets { break-inside: auto; page-break-inside: auto; }
+  .specification-table { min-width: 0 !important; table-layout: fixed; font-size: 9pt; }
+  .specification-table th, .specification-table td { padding: 5pt 6pt; break-inside: avoid; }
+  .specification-table th { background: #edf5f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .student-assessment { display: none; }
   body[data-print-target="student"] .teaching-pack > * { display: none !important; }
   body[data-print-target="student"] .student-assessment { display: block !important; break-before: auto !important; page-break-before: auto !important; }
