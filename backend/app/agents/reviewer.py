@@ -1,4 +1,5 @@
 import json
+import re
 from openai import OpenAIError
 from pydantic import ValidationError
 from app.agents.base import AgentContext
@@ -12,12 +13,19 @@ class ReviewerGenerationError(RuntimeError): pass
 
 class ReviewerAgent:
     def __init__(self) -> None: self.tool_trace: list[dict] = []
-    async def run(self, context: AgentContext, plan: LessonPlan, activities: ActivityGuide, assessment: Assessment, materials: MaterialPack | None = None) -> ReviewReport:
+    async def run(self, context: AgentContext, plan: LessonPlan, activities: ActivityGuide, assessment: Assessment, materials: MaterialPack | None = None, teacher_edit_mode: bool = False) -> ReviewReport:
         materials_context = "" if materials is None else f"""\nMATERIALES={json.dumps(materials.model_dump(mode='json'), ensure_ascii=False)}
 También audita que cada hoja pertenezca a la actividad que la solicita; que tarjetas usen sólo conceptos enseñados; que tablas y organizadores recojan el producto esperado; y que tickets correspondan a la verificación formativa. Toda cobertura con fulfillment='sin_cobertura' debe ser un hallazgo category='coverage', responsible_agent='materials', no bloqueante."""
-        codes = sorted({objective.code for objective in plan.curriculum_alignment.objectives})
+        serialized_artifacts = json.dumps(
+            {"plan": plan.model_dump(mode="json"), "activities": activities.model_dump(mode="json"), "assessment": assessment.model_dump(mode="json"), "materials": materials.model_dump(mode="json") if materials else None},
+            ensure_ascii=False,
+        )
+        declared_codes = {objective.code.strip() for objective in plan.curriculum_alignment.objectives if objective.code.strip()}
+        cited_codes = {match.strip() for match in re.findall(r"\b(?:[A-Z]{2}\d{2}\s+)?OA\s*\d+\b", serialized_artifacts, flags=re.IGNORECASE)}
+        codes = sorted(declared_codes | cited_codes)
         trace: list[dict] = []; self.tool_trace = trace
-        prompt = f"""Audita en español coherencia cruzada. Antes de responder debes llamar verificar_objetivo una vez por cada código en {codes}; no apruebes códigos sin verificar. Una pregunta puede aplicar un concepto a una situación cotidiana NUEVA, pero no puede afirmar que la clase observó, midió, registró, experimentó, usó una estación o tuvo evidencia de esa situación si no existe explícitamente en ACTIVIDADES. Trata evidencia inexistente como bloqueante de grounding y atribúyelo a assessment. Revisa también que suggested_application_minutes no exceda el tiempo de etapas de evaluación/evidencia del PLAN. No reescribas contenido. Devuelve hallazgos precisos con responsable, id y corrección.
+        teacher_edit_guidance = """\nEsta es una versión editada por una docente. Para hallazgos basados en ausencia (por ejemplo, que no se evalúa un objetivo o no se encuentra la evidencia de una actividad), formula siempre una observación sobre el material leído: «No encontré evidencia explícita…». No atribuyas el problema a la docente ni lo presentes como un veredicto. Un código OA que la herramienta verifique como inexistente sí es un hecho y debe seguir siendo bloqueante.""" if teacher_edit_mode else ""
+        prompt = f"""Audita en español coherencia cruzada. Antes de responder debes llamar verificar_objetivo una vez por cada código en {codes}; no apruebes códigos sin verificar. Una pregunta puede aplicar un concepto a una situación cotidiana NUEVA, pero no puede afirmar que la clase observó, midió, registró, experimentó, usó una estación o tuvo evidencia de esa situación si no existe explícitamente en ACTIVIDADES. Trata evidencia inexistente como bloqueante de grounding y atribúyelo a assessment. Revisa también que suggested_application_minutes no exceda el tiempo de etapas de evaluación/evidencia del PLAN. No reescribas contenido. Devuelve hallazgos precisos con responsable, id y corrección.{teacher_edit_guidance}
 PLAN={json.dumps(plan.model_dump(mode='json'), ensure_ascii=False)}
 ACTIVIDADES={json.dumps(activities.model_dump(mode='json'), ensure_ascii=False)}
 EVALUACION={json.dumps(assessment.model_dump(mode='json'), ensure_ascii=False)}{materials_context}"""
@@ -29,7 +37,7 @@ EVALUACION={json.dumps(assessment.model_dump(mode='json'), ensure_ascii=False)}{
             if missing: raise ValueError("El Revisor no verificó todos los OA: " + ", ".join(missing))
             if invalid:
                 from app.models.teaching_pack import ReviewFinding
-                out = out.model_copy(update={"status":"findings_remaining", "findings": out.findings + [ReviewFinding(id=f"oa-{code}", severity="bloqueante", responsible_agent="planner", category="curriculum_honesty", artifact_type="plan", artifact_id=code, description=f"El código {code} no existe en la fuente curricular.", suggested_correction="Elimina o reemplaza el OA por uno verificado.") for code in invalid]})
+                out = out.model_copy(update={"status":"findings_remaining", "findings": out.findings + [ReviewFinding(id=f"oa-{code}", severity="bloqueante", responsible_agent="planner", category="curriculum_honesty", artifact_type="plan", artifact_id=code, description=f"El código {code} no existe en la fuente curricular verificada.", suggested_correction="Elimina o reemplaza el OA por uno verificado.") for code in invalid]})
             return ReviewReport(status=out.status, summary=out.summary, findings=out.findings, correction=ReviewCorrection())
         except (OpenAIError, ValidationError, ValueError) as error:
             raise ReviewerGenerationError("No fue posible revisar la coherencia del pack.") from error

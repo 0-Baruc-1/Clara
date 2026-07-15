@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Literal
-from app.models.teaching_pack import ActivityGuide, Assessment, LessonPlan
+from app.models.teaching_pack import ActivityGuide, Assessment, LessonPlan, MaterialPack
 
 class LessonRequest(BaseModel):
     description: str = Field(min_length=10, max_length=4000, description="Descripción libre de la clase.")
@@ -18,3 +18,12 @@ class MaterialsRequest(BaseModel):
 class AuditRequest(BaseModel):
     content: str = Field(min_length=20, max_length=50000)
     declared_kind: Literal["auto", "lesson_plan", "assessment", "both"] = "auto"
+
+
+class EditedPackReviewRequest(BaseModel):
+    """A teacher-edited pack is already structured, so it needs no importer pass."""
+
+    lesson_plan: LessonPlan
+    activities: ActivityGuide
+    assessment: Assessment
+    materials: MaterialPack | None = None

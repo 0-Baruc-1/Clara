@@ -4,7 +4,7 @@ import { GenerationProgress } from "./components/GenerationProgress";
 import { LessonRequestForm } from "./components/LessonRequestForm";
 import { TeachingPackResults } from "./components/TeachingPackResults";
 import { AuditWorkspace } from "./components/AuditWorkspace";
-import { generateMaterialsStream, generateTeachingPackStream, isMockMode, type MockSpeed } from "./lib/api";
+import { generateMaterialsStream, generateTeachingPackStream, isMockMode, reviewEditedPackStream, type MockSpeed } from "./lib/api";
 import type { ActivityGuide, Assessment, LessonPlan, LessonRequest, MaterialPack, ReviewReport } from "./types/teachingPack";
 
 type Status = "pending" | "working" | "correcting" | "done";
@@ -25,9 +25,13 @@ export default function App() {
   const [mockSpeed, setMockSpeed] = useState<MockSpeed>("normal");
   const [materials, setMaterials] = useState<MaterialPack | null>(null);
   const [materialsBusy, setMaterialsBusy] = useState(false);
+  const [hasEdits, setHasEdits] = useState(false);
+  const [editReviewBusy, setEditReviewBusy] = useState(false);
+  const [editReviewError, setEditReviewError] = useState<string | null>(null);
+  const [editReviewStatus, setEditReviewStatus] = useState<string | null>(null);
 
   async function start(request: LessonRequest) {
-    setScreen("generating"); setPlan(null); setGuide(null); setAssessment(null); setReview(null); setError(null);
+    setScreen("generating"); setPlan(null); setGuide(null); setAssessment(null); setReview(null); setMaterials(null); setHasEdits(false); setEditReviewError(null); setEditReviewStatus(null); setError(null);
     setPlanner("working"); setDesigner("pending"); setEvaluator("pending"); setReviewer("pending"); setHandoff(null); setToolSummary(null);
     try {
       await generateTeachingPackStream(request, (event) => {
@@ -48,12 +52,22 @@ export default function App() {
     } catch (caught) { setError(caught instanceof Error ? caught.message : "No fue posible preparar tu material."); setScreen("request"); }
   }
 
-  async function createMaterials() {
-    if (!plan || !guide || !assessment) return;
+  async function createMaterials(pack: { lesson_plan: LessonPlan; activities: ActivityGuide; assessment: Assessment; materials: MaterialPack | null }) {
     setMaterialsBusy(true); setError(null);
-    try { await generateMaterialsStream({ lesson_plan: plan, activities: guide, assessment }, (event) => { if (event.type === "materials_completed" || event.type === "materials_reviewer_completed") setMaterials(event.materials); if (event.type === "materials_failure") setError(event.message); }, { mock: isMockMode, mockSpeed }); }
+    try { await generateMaterialsStream(pack, (event) => { if (event.type === "materials_completed" || event.type === "materials_reviewer_completed") setMaterials(event.materials); if (event.type === "materials_failure") setError(event.message); }, { mock: isMockMode, mockSpeed }); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "No fue posible preparar los materiales."); } finally { setMaterialsBusy(false); }
   }
+
+  async function reviewEdits(pack: { lesson_plan: LessonPlan; activities: ActivityGuide; assessment: Assessment; materials: MaterialPack | null }) {
+    setEditReviewBusy(true); setEditReviewError(null); setEditReviewStatus("Clara está revisando la versión editada.");
+    try { await reviewEditedPackStream(pack, (event) => { if (event.type === "edited_review_started") setEditReviewStatus(event.message); if (event.type === "agent_tool_completed") setEditReviewStatus(event.summary); if (event.type === "edited_review_completed") { setReview(event.review); setHasEdits(false); setEditReviewStatus("Revisión de cambios completada."); } if (event.type === "edited_review_failure") { setEditReviewError(event.message); setEditReviewStatus(null); } }, { mock: isMockMode, mockSpeed }); }
+    catch (caught) { setEditReviewError(caught instanceof Error ? caught.message : "No fue posible revisar los cambios."); } finally { setEditReviewBusy(false); }
+  }
+
+  const changedPlan = (next: LessonPlan) => { setPlan(next); setHasEdits(true); };
+  const changedGuide = (next: ActivityGuide) => { setGuide(next); setHasEdits(true); };
+  const changedAssessment = (next: Assessment) => { setAssessment(next); setHasEdits(true); };
+  const changedMaterials = (next: MaterialPack) => { setMaterials(next); setHasEdits(true); };
 
   const headerMarkState: ClaraMarkState = screen === "generating" ? handoff ? "correcting" : "working" : "resting";
   return <main className="min-h-screen bg-[#f7f4ed]"><div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
@@ -63,6 +77,6 @@ export default function App() {
       <LessonRequestForm onSubmit={start} />{error && <p className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}</div></div>}
     {screen === "generating" && <GenerationProgress planner={planner} designer={designer} assessment={evaluator} reviewer={reviewer} handoff={handoff} toolSummary={toolSummary} plan={plan} guide={guide} instrument={assessment} />}
     {screen === "audit" && <><button className="no-print mt-8 text-sm font-semibold text-[#195b4e] underline" onClick={() => setScreen("request")}>← Volver</button><AuditWorkspace /></>}
-    {screen === "results" && plan && guide && assessment && review && <TeachingPackResults plan={plan} guide={guide} assessment={assessment} review={review} materials={materials} onGenerateMaterials={createMaterials} materialsBusy={materialsBusy} onReplay={isMockMode ? () => setScreen("request") : undefined} />}
+    {screen === "results" && plan && guide && assessment && review && <TeachingPackResults plan={plan} guide={guide} assessment={assessment} review={review} materials={materials} onPlanChange={changedPlan} onGuideChange={changedGuide} onAssessmentChange={changedAssessment} onMaterialsChange={changedMaterials} onGenerateMaterials={createMaterials} materialsBusy={materialsBusy} onReviewEdits={reviewEdits} editReviewBusy={editReviewBusy} editReviewError={editReviewError} editReviewStatus={editReviewStatus} hasEdits={hasEdits} onReplay={isMockMode ? () => setScreen("request") : undefined} />}
   </div></main>;
 }

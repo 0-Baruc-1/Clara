@@ -62,4 +62,7 @@ export type GenerationEvent =
   | { type: "audit_reviewer_started"; message: string }
   | { type: "audit_completed"; report: AuditReport }
   | { type: "audit_failure"; message: string }
+  | { type: "edited_review_started"; message: string }
+  | { type: "edited_review_completed"; review: ReviewReport }
+  | { type: "edited_review_failure"; message: string }
   | { type: "failure"; message: string };
