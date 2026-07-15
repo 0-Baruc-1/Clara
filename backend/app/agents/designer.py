@@ -21,11 +21,11 @@ class DesignerAgent:
 
     max_attempts = 2
 
-    async def run(self, context: AgentContext, plan: LessonPlan) -> ActivityGuide:
+    async def run(self, context: AgentContext, plan: LessonPlan, repair_notes: str = "") -> ActivityGuide:
         self._validate_plan(plan)
         model = settings.designer_model or context.model or settings.openai_model
         system_context = self._system_context(context.system_context)
-        user_prompt = self._user_prompt(plan)
+        user_prompt = self._user_prompt(plan) + repair_notes
 
         last_error: Exception | None = None
         for attempt in range(1, self.max_attempts + 1):

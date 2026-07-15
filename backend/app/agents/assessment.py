@@ -11,8 +11,9 @@ class AssessmentGenerationError(RuntimeError): pass
 
 class AssessmentAgent:
     max_attempts = 2
-    async def run(self, context: AgentContext, plan: LessonPlan, activities: object | None = None) -> Assessment:
+    async def run(self, context: AgentContext, plan: LessonPlan, activities: object | None = None, repair_notes: str = "") -> Assessment:
         prompt = f"""Diseña una evaluación final de la clase completa, no repitas las verificaciones formativas de etapas. Responde en español. Usa exclusivamente estos objetivos exactos: {json.dumps(plan.learning_objectives, ensure_ascii=False)}. Cubre cada objetivo con al menos un ítem. Para selección múltiple, correct_option_label debe ser exactamente la etiqueta de la alternativa correcta (por ejemplo, A); expected_answer debe explicar el criterio o razonamiento en prosa. Los ítems deben tener respuestas observables y una rúbrica concreta. El tiempo sugerido no puede exceder {plan.duration_minutes} minutos. No inventes OA ni tabla de especificaciones; el sistema la deriva.\nPLAN:\n{json.dumps(plan.model_dump(mode='json'), ensure_ascii=False)}"""
+        prompt += repair_notes
         error = None
         for attempt in range(self.max_attempts):
             try:
@@ -29,7 +30,9 @@ class AssessmentAgent:
     def _validate(draft: AssessmentDraft, plan: LessonPlan) -> Assessment:
         allowed = set(plan.learning_objectives); ids = {item.id for item in draft.items}
         if len(ids) != len(draft.items): raise ValueError("Ítems duplicados: cada id debe ser único.")
-        if draft.suggested_application_minutes > plan.duration_minutes: raise ValueError("El tiempo de aplicación excede la duración de la clase.")
+        assessment_budget = sum(stage.duration_minutes for stage in plan.stages if any(word in f"{stage.name} {stage.purpose}".casefold() for word in ("evalu", "assessment", "evidencia")))
+        if assessment_budget and draft.suggested_application_minutes > assessment_budget: raise ValueError(f"Tiempo de aplicación {draft.suggested_application_minutes} min excede los {assessment_budget} min asignados a evaluación en el plan.")
+        if not assessment_budget and draft.suggested_application_minutes > plan.duration_minutes: raise ValueError("El tiempo de aplicación excede la duración de la clase.")
         if sum(item.points for item in draft.items) != draft.total_points: raise ValueError("Los puntajes no coinciden con el total declarado.")
         measured = {item.learning_objective for item in draft.items}
         if not measured <= allowed or measured != allowed: raise ValueError("La evaluación no mide exactamente todos los objetivos del plan.")

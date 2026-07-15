@@ -45,6 +45,7 @@ class ActivityDifferentiation(SpanishModel):
 
 
 class ClassroomActivity(SpanishModel):
+    id: str = Field(min_length=1)
     stage_name: str = Field(min_length=1)
     title: str = Field(min_length=1)
     duration_minutes: int = Field(ge=1, le=480)
@@ -126,6 +127,29 @@ class AssessmentDraft(SpanishModel):
     total_points: int = Field(ge=1)
     items: list[AssessmentItem] = Field(min_length=1)
     rubric: list[RubricCriterion] = Field(min_length=1)
+
+class ReviewFinding(SpanishModel):
+    id: str
+    severity: Literal["bloqueante", "importante", "menor"]
+    responsible_agent: Literal["planner", "designer", "assessment"]
+    category: Literal["grounding", "objective_coherence", "pedagogical_coherence", "curriculum_honesty", "internal_contradiction"]
+    artifact_type: Literal["plan", "activity", "assessment_item", "rubric"]
+    artifact_id: str
+    description: str
+    suggested_correction: str
+class ReviewCorrection(SpanishModel):
+    attempted: bool = False
+    target_agent: Literal["designer", "assessment"] | None = None
+    outcome: Literal["corrected", "findings_remaining", "regeneration_failed"] | None = None
+class ReviewReport(SpanishModel):
+    status: Literal["clean", "findings_remaining"]
+    summary: str
+    findings: list[ReviewFinding] = Field(default_factory=list)
+    correction: ReviewCorrection = Field(default_factory=ReviewCorrection)
+class ReviewReportDraft(SpanishModel):
+    status: Literal["clean", "findings_remaining"]
+    summary: str
+    findings: list[ReviewFinding] = Field(default_factory=list)
 
 class TeachingPack(SpanishModel):
     lesson_plan: LessonPlan
