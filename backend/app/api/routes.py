@@ -1,16 +1,22 @@
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+
 from app.models.requests import LessonRequest
-from app.models.teaching_pack import TeachingPack
-from app.services.generation import generate_teaching_pack
+from app.services.generation import generate_teaching_pack_events
 
 router = APIRouter()
+
 
 @router.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
-@router.post("/generate", response_model=TeachingPack)
-async def generate(request: LessonRequest) -> TeachingPack:
-    """Generate a teaching pack. Outputs are placeholders for now."""
-    return await generate_teaching_pack(request)
 
+@router.post("/generate")
+async def generate(request: LessonRequest) -> StreamingResponse:
+    """Stream validated Planner and Designer milestones as SSE frames."""
+    return StreamingResponse(
+        generate_teaching_pack_events(request),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
