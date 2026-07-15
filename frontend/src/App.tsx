@@ -63,6 +63,6 @@ export default function App() {
       <LessonRequestForm onSubmit={start} />{error && <p className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}</div></div>}
     {screen === "generating" && <GenerationProgress planner={planner} designer={designer} assessment={evaluator} reviewer={reviewer} handoff={handoff} toolSummary={toolSummary} plan={plan} guide={guide} instrument={assessment} />}
     {screen === "audit" && <><button className="no-print mt-8 text-sm font-semibold text-[#195b4e] underline" onClick={() => setScreen("request")}>← Volver</button><AuditWorkspace /></>}
-    {screen === "results" && plan && guide && assessment && review && <>{isMockMode && <div className="no-print mt-8 flex justify-end"><button onClick={() => setScreen("request")} className="rounded-lg bg-[#195b4e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12463c]">Reproducir generación</button></div>}<TeachingPackResults plan={plan} guide={guide} assessment={assessment} review={review} materials={materials} onGenerateMaterials={createMaterials} materialsBusy={materialsBusy} /></>}
+    {screen === "results" && plan && guide && assessment && review && <TeachingPackResults plan={plan} guide={guide} assessment={assessment} review={review} materials={materials} onGenerateMaterials={createMaterials} materialsBusy={materialsBusy} onReplay={isMockMode ? () => setScreen("request") : undefined} />}
   </div></main>;
 }
