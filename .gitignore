@@ -14,3 +14,5 @@ dist/
 backend/.vendor/
 backend/data/
 *.sqlite3
+backend/evals/reports/*
+!backend/evals/reports/.gitkeep
