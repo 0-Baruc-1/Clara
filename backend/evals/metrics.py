@@ -48,6 +48,16 @@ def summarize(results: dict[str, MatchResult]) -> dict[str, object]:
     host = {"matched": 0, "false_negatives": 0, "unexpected_findings": 0}
     gate = {"expected_emit": 0, "emitted": 0, "expected_suppress": 0, "suppressed": 0, "violations": 0}
     controls = [case for case in CASES if case.kind == "control"]
+    model_denominator = {"synthetic_error": 0, "captured_error": 0, "audit_gate_emit": 0, "total": 0}
+    host_denominator = {"synthetic_error": 0, "captured_error": 0, "audit_gate_emit": 0, "total": 0}
+    for case in CASES:
+        for expected in case.expected:
+            if expected.action != "emit":
+                continue
+            bucket = "audit_gate_emit" if case.kind == "audit_gate" else f"{case.provenance}_error"
+            target = host_denominator if expected.detection_origin == "host_enforced" else model_denominator
+            target[bucket] += 1
+            target["total"] += 1
 
     for case_id, result in results.items():
         case = case_by_id[case_id]
@@ -117,7 +127,9 @@ def summarize(results: dict[str, MatchResult]) -> dict[str, object]:
         },
         "per_error_class": per_class,
         "model_reasoning_score": _render(overall_model, set(), 0),
+        "model_reasoning_denominator": model_denominator,
         "host_enforced_results_excluded_from_model_reasoning": host,
+        "host_enforced_denominator": host_denominator,
         "near_misses_excluded_from_precision_and_recall": near_misses,
         "precision_gate": {
             **gate,

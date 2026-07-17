@@ -24,8 +24,7 @@ python scripts/run_reviewer_eval.py
 ```
 
 La salida se etiqueta `mock_harness_self_test`: verifica el evaluador, no el
-desempeño de un modelo. El adaptador real, repeticiones y desviación estándar se
-agregarán en el hito 2.
+desempeño de un modelo.
 
 Antes de usar métricas reales, ejecuta la calibración adversarial:
 
@@ -40,3 +39,30 @@ hallazgo host-enforced y un id de artefacto incorrecto. Las pruebas fijan sus
 resultados calculados a mano; por ejemplo, omitir uno de ocho errores
 aritméticos exige recall `0.875`, y un falso positivo en uno de diez controles
 exige FPR `0.1`.
+
+## Medición del Reviewer real (hito 2)
+
+Los cuatro baselines y sus mutaciones se materializan como `LessonPlan`,
+`ActivityGuide` y `Assessment` tipados, escritos a mano. El adaptador llama al
+`ReviewerAgent` existente: no duplica ni modifica su lógica. La fuente de cada
+hallazgo conserva su origen; los OA inexistentes que el host fuerza después de
+`verificar_objetivo` aparecen en el informe end-to-end, pero se excluyen de la
+métrica de razonamiento del modelo.
+
+Cada reporte declara además su denominador: actualmente son 32 errores
+sintéticos modelados, 2 capturados y 6 emisiones de compuerta de alta confianza
+(40 en total); los 12 OA host-enforced se desglosan aparte (8 sintéticos y 4 de
+compuerta). Los seis casos de baja confianza basados en ausencia son pruebas de
+supresión, no detecciones posibles.
+
+Ejecuta sólo de forma explícita y con mock desactivado:
+
+```powershell
+$env:CLARA_MOCK_MODE = "false"
+python scripts/run_reviewer_eval.py --real --runs 5 --output evals/reports/real-YYYYMMDD
+```
+
+No hay un `seed` expuesto para este flujo de Responses API. Para medir esa
+variación, el comando hace cinco corridas independientes del mismo conjunto (340
+evaluaciones del Reviewer) y reporta media y desviación estándar muestral de las tasas
+por corrida. No suma las cinco corridas como si fueran 340 ejemplos nuevos.

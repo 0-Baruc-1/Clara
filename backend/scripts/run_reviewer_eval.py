@@ -1,12 +1,8 @@
-"""Run Clara's Reviewer evaluation harness.
-
-Milestone 1 intentionally supports only deterministic mock mode. It must be
-invoked with CLARA_MOCK_MODE=true so no result can be mistaken for a real-model
-measurement. The real adapter is added in milestone 2.
-"""
+"""Run deterministic calibration or an explicit, repeated real Reviewer measurement."""
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -15,15 +11,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from evals.runner import run_adversarial_mock, run_mock  # noqa: E402
+from evals.runner import run_adversarial_mock, run_mock, run_real  # noqa: E402
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the Clara Reviewer evaluation harness.")
     parser.add_argument("--output", type=Path, default=ROOT / "evals" / "reports" / "latest-mock")
     parser.add_argument("--adversarial", action="store_true", help="Ejecuta salidas mock adversariales con métricas esperadas conocidas.")
+    parser.add_argument("--real", action="store_true", help="Mide el Reviewer real. Requiere API key y nunca habilita mock mode.")
+    parser.add_argument("--runs", type=int, default=5, help="Repeticiones independientes para --real (por defecto: 5).")
     args = parser.parse_args()
-    if os.getenv("CLARA_MOCK_MODE", "").casefold() not in {"1", "true", "yes"}:
+    mock_enabled = os.getenv("CLARA_MOCK_MODE", "").casefold() in {"1", "true", "yes"}
+    if args.real:
+        if mock_enabled:
+            raise SystemExit("--real exige CLARA_MOCK_MODE=false o sin definir; no se medirán fixtures mock como si fueran el Reviewer.")
+        report = asyncio.run(run_real(args.output, repetitions=args.runs))
+        print(f"real_reviewer_measurement runs={report['repetitions']} cases={report['case_counts']['total']} output={args.output}")
+        return 0
+    if not mock_enabled:
         raise SystemExit("Milestone 1 only runs deterministically with CLARA_MOCK_MODE=true.")
     if args.adversarial:
         report = run_adversarial_mock(args.output)

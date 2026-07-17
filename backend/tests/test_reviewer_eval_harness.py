@@ -5,6 +5,7 @@ from evals.cases import CASES
 from evals.matcher import match_case
 from evals.metrics import summarize
 from evals.mock_adapter import DeterministicMockReviewer
+from evals.material_factory import build_case_material
 from evals.schemas import EvaluationCase, ExpectedFinding, ObservedFinding
 
 
@@ -30,6 +31,8 @@ class ReviewerEvaluationHarnessTest(unittest.TestCase):
         self.assertEqual(report["precision_gate"]["presence_emission_rate"], 1.0)
         self.assertEqual(report["model_reasoning_score"]["true_positives"], 40)
         self.assertEqual(report["host_enforced_results_excluded_from_model_reasoning"]["matched"], 12)
+        self.assertEqual(report["model_reasoning_denominator"], {"synthetic_error": 32, "captured_error": 2, "audit_gate_emit": 6, "total": 40})
+        self.assertEqual(report["host_enforced_denominator"], {"synthetic_error": 8, "captured_error": 0, "audit_gate_emit": 4, "total": 12})
         for values in report["per_error_class"].values():
             self.assertEqual(values["recall"], 1.0)
             self.assertEqual(values["precision"], 1.0)
@@ -111,6 +114,20 @@ class ReviewerEvaluationHarnessTest(unittest.TestCase):
         )
         self.assertEqual(item_alignment["precision"], 10 / 11)
         self.assertEqual(item_alignment["recall"], 10 / 11)
+
+    def test_real_adapter_fixtures_are_typed_and_apply_host_mutation(self) -> None:
+        case = next(case for case in CASES if case.id == "synthetic-fabricated-oa-cn-water-999")
+        plan, activities, assessment = build_case_material(case)
+        self.assertIn("CN06 OA 99", [objective.code for objective in plan.curriculum_alignment.objectives])
+        self.assertIn("CN06 OA 99", plan.learning_objectives)
+        self.assertEqual(activities.activities[0].id, "water-observe")
+        self.assertEqual(assessment.items[0].id, "water-item-1")
+
+    def test_real_adapter_fixture_injects_freezer_without_activity_evidence(self) -> None:
+        case = next(case for case in CASES if case.id == "captured-freezer-grounding")
+        _, activities, assessment = build_case_material(case)
+        self.assertIn("freezer", assessment.items[0].question)
+        self.assertFalse(any("freezer" in activity.title.casefold() for activity in activities.activities))
 
 
 if __name__ == "__main__":
