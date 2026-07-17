@@ -30,6 +30,7 @@ def match_case(case: EvaluationCase, observed: list[ObservedFinding]) -> MatchRe
                 expected_issue_id=expected.issue_id,
                 observed_id=finding.id,
                 severity_correct=SEVERITY_RANK[finding.severity] >= SEVERITY_RANK[expected.minimum_severity],
+                origin=finding.origin,
             ))
             continue
         near_index = next((index for index, finding in enumerate(remaining) if _same_anchor(expected, finding)), None)

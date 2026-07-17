@@ -24,6 +24,7 @@ FindingCategory = Literal[
 ]
 ResponsibleAgent = Literal["planner", "designer", "assessment", "materials"]
 Severity = Literal["bloqueante", "importante", "menor"]
+FindingOrigin = Literal["model", "host_enforced"]
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,7 @@ class ExpectedFinding:
     target: ArtifactAnchor
     responsible_agent: ResponsibleAgent
     minimum_severity: Severity
+    detection_origin: FindingOrigin = "model"
 
 
 @dataclass(frozen=True)
@@ -91,6 +93,7 @@ class ObservedFinding:
     artifact_type: ArtifactType
     artifact_id: str
     description: str = ""
+    origin: FindingOrigin = "model"
 
 
 @dataclass(frozen=True)
@@ -98,6 +101,7 @@ class MatchedFinding:
     expected_issue_id: str
     observed_id: str
     severity_correct: bool
+    origin: FindingOrigin
 
 
 @dataclass(frozen=True)

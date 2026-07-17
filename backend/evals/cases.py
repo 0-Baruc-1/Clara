@@ -22,6 +22,7 @@ def _issue(
     agent: str,
     severity: str = "importante",
     action: str = "emit",
+    detection_origin: str = "model",
     explanation: str = "Error inyectado manualmente.",
 ) -> tuple[InjectedError, ExpectedFinding]:
     anchor = ArtifactAnchor(artifact_type=artifact_type, artifact_id=artifact_id)  # type: ignore[arg-type]
@@ -35,6 +36,7 @@ def _issue(
             target=anchor,
             responsible_agent=agent,  # type: ignore[arg-type]
             minimum_severity=severity,  # type: ignore[arg-type]
+            detection_origin=detection_origin,  # type: ignore[arg-type]
         ),
     )
 
@@ -136,7 +138,7 @@ def _synthetic_cases() -> list[EvaluationCase]:
         issue = _issue(f"material-gap-{suffix}", "activity_material_gap", "activity", activity_id, "internal_contradiction", "designer", explanation=explanation)
         cases.append(_error_case(f"synthetic-material-gap-{suffix}", "Actividad con recurso ausente", baseline, _mutation(f"activities[{activity_id}].materials", explanation, explanation, "append"), issue))
     for suffix, baseline, code in FABRICATED_ROWS:
-        issue = _issue(f"fabricated-{suffix}", "fabricated_oa", "plan", code, "curriculum_honesty", "planner", "bloqueante", explanation=f"Se declara el código inexistente {code}.")
+        issue = _issue(f"fabricated-{suffix}", "fabricated_oa", "plan", code, "curriculum_honesty", "planner", "bloqueante", detection_origin="host_enforced", explanation=f"Se declara el código inexistente {code}.")
         cases.append(_error_case(f"synthetic-fabricated-oa-{suffix}", "Código OA fabricado", baseline, _mutation("lesson_plan.curriculum_alignment.objectives", code, f"Se agrega {code}.", "append"), issue))
     return cases
 
@@ -218,6 +220,7 @@ def _gate_cases() -> list[EvaluationCase]:
             issue = _issue(
                 f"gate-{index}-{confidence}", error_class, artifact_type, artifact_id, category, agent,
                 "bloqueante" if error_class == "fabricated_oa" else "importante", action,
+                "host_enforced" if error_class == "fabricated_oa" else "model",
                 explanation="Caso explícito para medir la compuerta de precisión.",
             )
             cases.append(_error_case(

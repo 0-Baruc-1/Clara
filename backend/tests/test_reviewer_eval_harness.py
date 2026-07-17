@@ -1,5 +1,6 @@
 import unittest
 
+from evals.adversarial import outputs_for
 from evals.cases import CASES
 from evals.matcher import match_case
 from evals.metrics import summarize
@@ -8,6 +9,10 @@ from evals.schemas import EvaluationCase, ExpectedFinding, ObservedFinding
 
 
 class ReviewerEvaluationHarnessTest(unittest.TestCase):
+    def _scenario(self, name: str) -> dict[str, object]:
+        outputs = outputs_for(name)
+        return summarize({case.id: match_case(case, outputs[case.id]) for case in CASES})
+
     def test_hand_written_suite_has_agreed_case_counts(self) -> None:
         self.assertEqual(len(CASES), 68)
         self.assertEqual(sum(case.kind == "control" for case in CASES), 10)
@@ -23,6 +28,8 @@ class ReviewerEvaluationHarnessTest(unittest.TestCase):
         self.assertEqual(report["case_counts"]["total"], 68)
         self.assertEqual(report["precision_gate"]["suppression_rate"], 1.0)
         self.assertEqual(report["precision_gate"]["presence_emission_rate"], 1.0)
+        self.assertEqual(report["model_reasoning_score"]["true_positives"], 40)
+        self.assertEqual(report["host_enforced_results_excluded_from_model_reasoning"]["matched"], 12)
         for values in report["per_error_class"].values():
             self.assertEqual(values["recall"], 1.0)
             self.assertEqual(values["precision"], 1.0)
@@ -56,6 +63,54 @@ class ReviewerEvaluationHarnessTest(unittest.TestCase):
         result = match_case(control, [finding])
         self.assertEqual(len(result.false_positives), 1)
         self.assertEqual(result.false_negatives, [])
+
+    def test_adversarial_omission_has_hand_computed_recall(self) -> None:
+        report = self._scenario("omitted_expected_finding")
+        arithmetic = report["per_error_class"]["incorrect_arithmetic_answer"]
+        self.assertEqual((arithmetic["true_positives"], arithmetic["false_negatives"]), (7, 1))
+        self.assertEqual(arithmetic["recall"], 7 / 8)
+        self.assertEqual(report["model_reasoning_score"]["recall"], 39 / 40)
+
+    def test_adversarial_control_finding_has_hand_computed_fpr(self) -> None:
+        report = self._scenario("false_positive_on_control")
+        arithmetic = report["per_error_class"]["incorrect_arithmetic_answer"]
+        self.assertEqual((arithmetic["true_positives"], arithmetic["false_positives"]), (8, 1))
+        self.assertEqual(arithmetic["precision"], 8 / 9)
+        self.assertEqual(arithmetic["control_false_positive_rate"], 1 / 10)
+        self.assertEqual(report["model_reasoning_score"]["precision"], 40 / 41)
+
+    def test_adversarial_wrong_agent_is_only_a_near_miss(self) -> None:
+        report = self._scenario("wrong_responsible_agent")
+        false_alignment = report["per_error_class"]["declared_oa_not_worked"]
+        self.assertEqual((false_alignment["true_positives"], false_alignment["false_positives"], false_alignment["false_negatives"]), (11, 0, 0))
+        self.assertEqual((false_alignment["precision"], false_alignment["recall"]), (1.0, 1.0))
+        self.assertEqual(len(report["near_misses_excluded_from_precision_and_recall"]), 1)
+
+    def test_adversarial_low_confidence_absence_is_gate_violation_only(self) -> None:
+        report = self._scenario("low_confidence_absence_emitted")
+        gate = report["precision_gate"]
+        self.assertEqual((gate["expected_suppress"], gate["suppressed"], gate["violations"]), (6, 5, 1))
+        self.assertEqual(gate["suppression_rate"], 5 / 6)
+        self.assertEqual(report["model_reasoning_score"]["true_positives"], 40)
+        self.assertEqual(report["model_reasoning_score"]["false_positives"], 0)
+
+    def test_host_enforced_findings_do_not_inflate_reasoning_score(self) -> None:
+        report = self._scenario("host_enforced_segregation")
+        fabricated = report["per_error_class"]["fabricated_oa"]
+        self.assertEqual(fabricated["true_positives"], 12)
+        self.assertEqual(report["host_enforced_results_excluded_from_model_reasoning"]["matched"], 12)
+        self.assertEqual(report["model_reasoning_score"]["true_positives"], 40)
+        self.assertEqual(report["model_reasoning_score"]["recall"], 1.0)
+
+    def test_wrong_artifact_id_is_one_fp_and_one_fn(self) -> None:
+        report = self._scenario("wrong_artifact_id")
+        item_alignment = report["per_error_class"]["item_not_assessing_claimed_oa"]
+        self.assertEqual(
+            (item_alignment["true_positives"], item_alignment["false_positives"], item_alignment["false_negatives"]),
+            (10, 1, 1),
+        )
+        self.assertEqual(item_alignment["precision"], 10 / 11)
+        self.assertEqual(item_alignment["recall"], 10 / 11)
 
 
 if __name__ == "__main__":

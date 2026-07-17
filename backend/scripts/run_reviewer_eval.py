@@ -15,18 +15,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from evals.runner import run_mock  # noqa: E402
+from evals.runner import run_adversarial_mock, run_mock  # noqa: E402
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the Clara Reviewer evaluation harness.")
     parser.add_argument("--output", type=Path, default=ROOT / "evals" / "reports" / "latest-mock")
+    parser.add_argument("--adversarial", action="store_true", help="Ejecuta salidas mock adversariales con métricas esperadas conocidas.")
     args = parser.parse_args()
     if os.getenv("CLARA_MOCK_MODE", "").casefold() not in {"1", "true", "yes"}:
         raise SystemExit("Milestone 1 only runs deterministically with CLARA_MOCK_MODE=true.")
-    report = run_mock(args.output)
-    counts = report["metrics"]["case_counts"]
-    print(f"mock_harness_self_test cases={counts['total']} controls={counts['controls']} gate_cases={counts['audit_gate_cases']} output={args.output}")
+    if args.adversarial:
+        report = run_adversarial_mock(args.output)
+        print(f"mock_adversarial_harness_calibration scenarios={len(report['scenarios'])} output={args.output}")
+    else:
+        report = run_mock(args.output)
+        counts = report["metrics"]["case_counts"]
+        print(f"mock_harness_self_test cases={counts['total']} controls={counts['controls']} gate_cases={counts['audit_gate_cases']} output={args.output}")
     return 0
 
 

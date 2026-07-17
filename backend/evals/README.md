@@ -26,3 +26,17 @@ python scripts/run_reviewer_eval.py
 La salida se etiqueta `mock_harness_self_test`: verifica el evaluador, no el
 desempeño de un modelo. El adaptador real, repeticiones y desviación estándar se
 agregarán en el hito 2.
+
+Antes de usar métricas reales, ejecuta la calibración adversarial:
+
+```powershell
+$env:CLARA_MOCK_MODE = "true"
+python scripts/run_reviewer_eval.py --adversarial
+```
+
+Sus seis salidas mock son deliberadamente incorrectas: una omisión, un falso
+positivo de control, una atribución errónea, una violación de supresión, un
+hallazgo host-enforced y un id de artefacto incorrecto. Las pruebas fijan sus
+resultados calculados a mano; por ejemplo, omitir uno de ocho errores
+aritméticos exige recall `0.875`, y un falso positivo en uno de diez controles
+exige FPR `0.1`.

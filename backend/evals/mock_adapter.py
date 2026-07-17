@@ -21,6 +21,7 @@ class DeterministicMockReviewer:
                 artifact_type=expected.target.artifact_type,
                 artifact_id=expected.target.artifact_id,
                 description="Salida determinista del adaptador mock del harness.",
+                origin=expected.detection_origin,
             )
             for expected in case.expected
             if expected.action == "emit"

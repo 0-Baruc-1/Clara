@@ -1,7 +1,6 @@
 """Metric aggregation for strict matches and precision-gate outcomes."""
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import asdict
 
 from .cases import CASES
@@ -16,33 +15,65 @@ PRIMARY_CLASSES = (
     "activity_material_gap",
     "fabricated_oa",
 )
+TRACKED_CLASSES = PRIMARY_CLASSES + ("grounding_absent_experiment",)
 
 
 def _ratio(numerator: int, denominator: int) -> float | None:
     return None if denominator == 0 else numerator / denominator
 
 
+def _counter() -> dict[str, int]:
+    return {"tp": 0, "fp": 0, "fn": 0, "severity_correct": 0, "severity_observed": 0}
+
+
+def _render(row: dict[str, int], control_fp_cases: set[str], controls: int) -> dict[str, object]:
+    tp, fp, fn = row["tp"], row["fp"], row["fn"]
+    return {
+        "true_positives": tp,
+        "false_positives": fp,
+        "false_negatives": fn,
+        "precision": _ratio(tp, tp + fp),
+        "recall": _ratio(tp, tp + fn),
+        "control_false_positive_rate": _ratio(len(control_fp_cases), controls),
+        "severity_accuracy_among_true_positives": _ratio(row["severity_correct"], row["severity_observed"]),
+    }
+
+
 def summarize(results: dict[str, MatchResult]) -> dict[str, object]:
     case_by_id = {case.id: case for case in CASES}
-    counts = {error_class: {"tp": 0, "fp": 0, "fn": 0, "severity_correct": 0, "severity_observed": 0, "control_fp_cases": set()} for error_class in PRIMARY_CLASSES}
+    end_to_end = {error_class: _counter() for error_class in TRACKED_CLASSES}
+    model_reasoning = {error_class: _counter() for error_class in TRACKED_CLASSES}
+    control_fps = {error_class: set() for error_class in TRACKED_CLASSES}
     near_misses: list[dict[str, object]] = []
+    host = {"matched": 0, "false_negatives": 0, "unexpected_findings": 0}
     gate = {"expected_emit": 0, "emitted": 0, "expected_suppress": 0, "suppressed": 0, "violations": 0}
     controls = [case for case in CASES if case.kind == "control"]
 
     for case_id, result in results.items():
         case = case_by_id[case_id]
+        expected_by_id = {expected.issue_id: expected for expected in case.expected}
         for match in result.matches:
-            expected = next(item for item in case.expected if item.issue_id == match.expected_issue_id)
-            if expected.error_class in counts:
-                counts[expected.error_class]["tp"] += 1
-                counts[expected.error_class]["severity_observed"] += 1
-                counts[expected.error_class]["severity_correct"] += int(match.severity_correct)
+            expected = expected_by_id[match.expected_issue_id]
+            if expected.error_class in end_to_end:
+                end_to_end[expected.error_class]["tp"] += 1
+                end_to_end[expected.error_class]["severity_observed"] += 1
+                end_to_end[expected.error_class]["severity_correct"] += int(match.severity_correct)
+            if expected.detection_origin == "host_enforced":
+                host["matched"] += 1
+            elif expected.error_class in model_reasoning and match.origin == "model":
+                model_reasoning[expected.error_class]["tp"] += 1
+                model_reasoning[expected.error_class]["severity_observed"] += 1
+                model_reasoning[expected.error_class]["severity_correct"] += int(match.severity_correct)
             if case.kind == "audit_gate":
                 gate["expected_emit"] += 1
                 gate["emitted"] += 1
         for expected in result.false_negatives:
-            if expected.error_class in counts:
-                counts[expected.error_class]["fn"] += 1
+            if expected.error_class in end_to_end:
+                end_to_end[expected.error_class]["fn"] += 1
+            if expected.detection_origin == "host_enforced":
+                host["false_negatives"] += 1
+            elif expected.error_class in model_reasoning:
+                model_reasoning[expected.error_class]["fn"] += 1
             if case.kind == "audit_gate":
                 gate["expected_emit"] += 1
         for expected in result.correctly_suppressed:
@@ -55,25 +86,26 @@ def summarize(results: dict[str, MatchResult]) -> dict[str, object]:
                 gate["violations"] += 1
         for finding in result.false_positives:
             error_class = inferred_error_class(finding)
-            if error_class in counts:
-                counts[error_class]["fp"] += 1
-                if case.kind == "control":
-                    counts[error_class]["control_fp_cases"].add(case.id)
+            if error_class not in end_to_end:
+                continue
+            end_to_end[error_class]["fp"] += 1
+            if finding.origin == "host_enforced":
+                host["unexpected_findings"] += 1
+            else:
+                model_reasoning[error_class]["fp"] += 1
+            if case.kind == "control":
+                control_fps[error_class].add(case.id)
         for near in result.near_misses:
             near_misses.append(asdict(near) | {"case_id": case.id})
 
-    per_class = {}
-    for error_class, row in counts.items():
-        tp, fp, fn = row["tp"], row["fp"], row["fn"]
-        per_class[error_class] = {
-            "true_positives": tp,
-            "false_positives": fp,
-            "false_negatives": fn,
-            "precision": _ratio(tp, tp + fp),
-            "recall": _ratio(tp, tp + fn),
-            "control_false_positive_rate": _ratio(len(row["control_fp_cases"]), len(controls)),
-            "severity_accuracy_among_true_positives": _ratio(row["severity_correct"], row["severity_observed"]),
-        }
+    per_class = {
+        error_class: _render(end_to_end[error_class], control_fps[error_class], len(controls))
+        for error_class in PRIMARY_CLASSES
+    }
+    overall_model = _counter()
+    for error_class in TRACKED_CLASSES:
+        for key in overall_model:
+            overall_model[key] += model_reasoning[error_class][key]
 
     return {
         "case_counts": {
@@ -84,6 +116,8 @@ def summarize(results: dict[str, MatchResult]) -> dict[str, object]:
             "audit_gate_cases": sum(case.kind == "audit_gate" for case in CASES),
         },
         "per_error_class": per_class,
+        "model_reasoning_score": _render(overall_model, set(), 0),
+        "host_enforced_results_excluded_from_model_reasoning": host,
         "near_misses_excluded_from_precision_and_recall": near_misses,
         "precision_gate": {
             **gate,
