@@ -18,7 +18,7 @@ def _coverage_findings(report, materials: MaterialPack):
             findings.append(ReviewFinding(id=f"coverage-{coverage.activity_id}", severity="importante", responsible_agent="materials", category="coverage", artifact_type="material", artifact_id=coverage.source_material_label, description=f"La actividad {coverage.activity_id} solicita '{coverage.source_material_label}', pero no hay una hoja imprimible que la cubra.", suggested_correction="Genera o adapta esta hoja antes de usar la actividad."))
     return report.model_copy(update={"status": "findings_remaining" if findings else "clean", "findings": findings})
 
-async def generate_materials_events(request: MaterialsRequest) -> AsyncIterator[str]:
+async def generate_materials_events(request: MaterialsRequest, *, api_key: str | None = None) -> AsyncIterator[str]:
     if settings.mock_mode:
         materials = water_materials()
         yield sse_event("materials_started", {"message": "El agente de Materiales está preparando hojas de ejemplo."})
@@ -28,7 +28,7 @@ async def generate_materials_events(request: MaterialsRequest) -> AsyncIterator[
         report = water_review().model_copy(update={"correction": ReviewCorrection(attempted=True, target_agent="materials", outcome="corrected")})
         yield sse_event("materials_reviewer_completed", {"materials": materials.model_dump(mode="json"), "review": report.model_dump(mode="json")})
         return
-    context = AgentContext(request=LessonRequest(description="Generación bajo demanda de materiales."), system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model)
+    context = AgentContext(request=LessonRequest(description="Generación bajo demanda de materiales."), system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model, api_key=api_key)
     try:
         yield sse_event("materials_started", {"message": "El agente de Materiales está preparando hojas para el aula."})
         materials = await MaterialsAgent().run(context, request.activities)

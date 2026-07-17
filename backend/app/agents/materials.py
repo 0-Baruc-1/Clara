@@ -23,7 +23,7 @@ ACTIVIDADES={json.dumps(guide.model_dump(mode='json'), ensure_ascii=False)}{repa
         error: Exception | None = None
         for attempt in range(self.max_attempts):
             try:
-                draft = await parse_structured_response(model=settings.materials_model or context.model or settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nEres el agente de materiales imprimibles de Clara.", user_prompt=prompt, response_format=MaterialPackDraft)
+                draft = await parse_structured_response(model=settings.materials_model or context.model or settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nEres el agente de materiales imprimibles de Clara.", user_prompt=prompt, response_format=MaterialPackDraft, api_key=context.api_key)
                 if draft is None: raise ValueError("El modelo no devolvió materiales estructurados.")
                 return self._validate(draft, requests)
             except (OpenAIError, ValidationError, ValueError) as exc:

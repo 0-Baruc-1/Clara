@@ -25,6 +25,22 @@ Los materiales imprimibles se generan bajo demanda después de revisar el pack. 
 
 Todos los agentes comparten un prefijo de sistema estable con reglas pedagógicas, de trazabilidad y de honestidad curricular. Esto favorece el prompt caching. La referencia curricular no se inyecta como un blob: Planner y Reviewer llaman `buscar_objetivos` y `verificar_objetivo` sobre el mismo proveedor local. Cada código citado debe estar verificado durante esa ejecución; si el proveedor falla, Clara falla cerrada en vez de aceptar un OA sin comprobar.
 
+## Procedencia del catálogo curricular
+
+El PDF oficial de MINEDUC se mantiene fuera de Git en `backend/data/source/` por su tamaño. Para volver a ejecutar la extracción, colócalo como `backend/data/source/bases-curriculares-1-a-6-basico.pdf` y ejecuta:
+
+```powershell
+python backend/scripts/extract_mineduc_bases.py
+```
+
+El proceso no adivina prefijos de código. Su evidencia versionada queda en [mineduc_extraction_report.json](backend/app/curriculum/mineduc_extraction_report.json). El PDF conserva asignatura, nivel, número y páginas, pero no declara los códigos completos. Para completar una cobertura, consulta cada ficha oficial, con caché local y límite de ritmo:
+
+```powershell
+python backend/scripts/complete_mineduc_codes.py
+```
+
+La pasada inicial verificó Ciencias Naturales y Matemática de 6° básico: el [catálogo activo](backend/app/curriculum/mineduc_objectives.json) contiene 42 OA, cada uno con su URL oficial individual como fuente. El informe conserva ambos textos y marca cualquier diferencia entre PDF y web para revisión manual; una ficha inexistente o una redacción no identificable nunca genera código. Las demás asignaturas y niveles siguen fuera de cobertura hasta completar el mismo proceso.
+
 ## Flujos adicionales
 
 - **Auditar material existente**: importa planificación o evaluación en prosa, la interpreta de forma conservadora y utiliza el mismo Reviewer. Las conclusiones que dependen de una ausencia se muestran solo con suficiente confianza de lectura; un OA inexistente sigue siendo un hallazgo bloqueante porque es verificable por presencia.

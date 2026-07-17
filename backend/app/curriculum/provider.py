@@ -19,7 +19,7 @@ def normalized(value: str) -> str:
 
 class JsonCurriculumProvider:
     def __init__(self, path: Path | None = None) -> None:
-        self.catalog = CurriculumCatalog.model_validate_json((path or Path(__file__).with_name("sample_objectives.json")).read_text(encoding="utf-8"))
+        self.catalog = CurriculumCatalog.model_validate_json((path or Path(__file__).with_name("mineduc_objectives.json")).read_text(encoding="utf-8"))
     def candidates(self, subject: str | None, grade_level: str | None) -> list[CurriculumEntry]:
         def matches(value: str | None, expected: str) -> bool:
             actual, target = normalized(value or ""), normalized(expected)

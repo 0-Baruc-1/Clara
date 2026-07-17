@@ -35,13 +35,14 @@ class DesignerAgent:
                     system_context=system_context,
                     user_prompt=user_prompt,
                     response_format=ActivityGuideDraft,
+                    api_key=context.api_key,
                 )
                 if draft is None:
                     raise ValueError("El modelo no devolvió una guía de actividades estructurada.")
                 return self._verify_and_finalize(draft, plan)
             except (OpenAIError, ValidationError, ValueError) as error:
                 last_error = error
-                logger.warning("Fallo del diseñador, intento %s/%s: %s", attempt, self.max_attempts, error)
+                logger.warning("Fallo del diseñador, intento %s/%s", attempt, self.max_attempts)
 
         raise DesignerGenerationError(
             "No fue posible generar una guía de actividades válida. Intenta nuevamente."

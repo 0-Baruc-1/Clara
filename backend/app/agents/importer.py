@@ -14,7 +14,7 @@ class ImporterAgent:
 MATERIAL:
 {content}"""
         try:
-            parsed = await parse_structured_response(model=settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nEres el importador conservador de Clara.", user_prompt=prompt, response_format=ImportedAuditBundle)
+            parsed = await parse_structured_response(model=settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nEres el importador conservador de Clara.", user_prompt=prompt, response_format=ImportedAuditBundle, api_key=context.api_key)
             if parsed is None: raise ValueError("Sin salida estructurada")
             return parsed
         except (OpenAIError, ValidationError, ValueError) as error:

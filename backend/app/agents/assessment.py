@@ -17,7 +17,7 @@ class AssessmentAgent:
         error = None
         for attempt in range(self.max_attempts):
             try:
-                draft = await parse_structured_response(model=settings.assessment_model or context.model or settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nEres el agente de evaluación de Clara.", user_prompt=prompt, response_format=AssessmentDraft)
+                draft = await parse_structured_response(model=settings.assessment_model or context.model or settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nEres el agente de evaluación de Clara.", user_prompt=prompt, response_format=AssessmentDraft, api_key=context.api_key)
                 if draft is None: raise ValueError("El modelo no devolvió una evaluación estructurada.")
                 return self._validate(draft, plan)
             except (OpenAIError, ValidationError, ValueError) as exc:

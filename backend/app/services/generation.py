@@ -28,7 +28,7 @@ def curriculum_tool_summary(agent: str, call: dict[str, object]) -> str:
     label = "Revisor" if agent == "reviewer" else "Planificador"
     return f"{label} verificó {code}"
 
-async def generate_teaching_pack_events(request: LessonRequest) -> AsyncIterator[str]:
+async def generate_teaching_pack_events(request: LessonRequest, *, api_key: str | None = None) -> AsyncIterator[str]:
     if settings.mock_mode:
         plan, guide, assessment, report = water_plan(), water_guide(), water_assessment(), water_review()
         yield sse_event("planner_started", {"message": "El Planificador está consultando la muestra curricular local."})
@@ -42,7 +42,7 @@ async def generate_teaching_pack_events(request: LessonRequest) -> AsyncIterator
         yield sse_event("reviewer_correcting", {"target_agent": "assessment", "message": "El Revisor revisó una corrección focalizada del Evaluador."})
         yield sse_event("reviewer_completed", {"review": report.model_dump(mode="json"), "activities": guide.model_dump(mode="json"), "assessment": assessment.model_dump(mode="json")})
         return
-    context = AgentContext(request=request, system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model)
+    context = AgentContext(request=request, system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model, api_key=api_key)
     try:
         yield sse_event("planner_started", {"message": "El Planificador está vinculando la clase con el currículum."})
         planner = PlannerAgent(); plan = await planner.run(context)

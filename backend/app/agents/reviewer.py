@@ -44,7 +44,7 @@ PLAN={json.dumps(plan.model_dump(mode='json'), ensure_ascii=False)}
 ACTIVIDADES={json.dumps(activities.model_dump(mode='json'), ensure_ascii=False)}
 EVALUACION={json.dumps(assessment.model_dump(mode='json'), ensure_ascii=False)}{materials_context}"""
         try:
-            out = await parse_structured_response_with_tools(model=settings.reviewer_model or context.model or settings.openai_model, system_context=f"{context.system_context}\nVerifica OA con herramientas curriculares; no uses memoria.", user_prompt=prompt, response_format=ReviewReportDraft, tools=CURRICULUM_TOOLS, tool_handler=curriculum_tool_handler(JsonCurriculumProvider(), trace))
+            out = await parse_structured_response_with_tools(model=settings.reviewer_model or context.model or settings.openai_model, system_context=f"{context.system_context}\nVerifica OA con herramientas curriculares; no uses memoria.", user_prompt=prompt, response_format=ReviewReportDraft, tools=CURRICULUM_TOOLS, tool_handler=curriculum_tool_handler(JsonCurriculumProvider(), trace), api_key=context.api_key)
             checked = {item["arguments"]["codigo"].casefold(): item["result"] for item in trace if item["tool"] == "verificar_objetivo"}
             missing = [code for code in codes if code.casefold() not in checked]
             invalid = [code for code in codes if code.casefold() in checked and not checked[code.casefold()]["existe"]]

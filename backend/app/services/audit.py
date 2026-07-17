@@ -34,14 +34,14 @@ def frame_teacher_edit_findings(findings: list[ReviewFinding]) -> list[ReviewFin
         framed.append(finding)
     return framed
 
-async def audit_material_events(request: AuditRequest) -> AsyncIterator[str]:
+async def audit_material_events(request: AuditRequest, *, api_key: str | None = None) -> AsyncIterator[str]:
     if settings.mock_mode:
         yield sse_event("audit_parse_started", {"message": "Clara está leyendo el material de ejemplo."})
         yield sse_event("audit_parse_completed", {"bundle": {"source_summary": "Material de ejemplo para la demostración."}})
         yield sse_event("audit_reviewer_started", {"message": "El Revisor está verificando los OA del ejemplo."})
         yield sse_event("audit_completed", {"report": mock_audit_report().model_dump(mode="json")})
         return
-    context = AgentContext(request=LessonRequest(description="Auditoría de material externo.", subject=request.subject, grade_level=request.grade_level), system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model)
+    context = AgentContext(request=LessonRequest(description="Auditoría de material externo.", subject=request.subject, grade_level=request.grade_level), system_context=SHARED_SYSTEM_CONTEXT, model=settings.openai_model, api_key=api_key)
     try:
         yield sse_event("audit_parse_started", {"message": "Clara está identificando objetivos, actividades y evaluación."})
         bundle = await ImporterAgent().run(context, request.content, request.declared_kind)
@@ -80,7 +80,7 @@ async def audit_material_report(request: AuditRequest) -> AuditReport:
     raise RuntimeError("La auditoría no devolvió un informe.")
 
 
-async def review_edited_pack_events(request: EditedPackReviewRequest) -> AsyncIterator[str]:
+async def review_edited_pack_events(request: EditedPackReviewRequest, *, api_key: str | None = None) -> AsyncIterator[str]:
     """Audit teacher changes without a parser pass; the structured fields are fully readable."""
     if settings.mock_mode:
         yield sse_event("edited_review_started", {"message": "Clara está revisando la versión de ejemplo."})
@@ -90,6 +90,7 @@ async def review_edited_pack_events(request: EditedPackReviewRequest) -> AsyncIt
         request=LessonRequest(description="Revisión de cambios realizados por una docente."),
         system_context=SHARED_SYSTEM_CONTEXT,
         model=settings.openai_model,
+        api_key=api_key,
     )
     try:
         yield sse_event("edited_review_started", {"message": "Clara está revisando tus cambios contra el plan y el currículum."})

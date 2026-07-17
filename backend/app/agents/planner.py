@@ -19,7 +19,7 @@ class PlannerAgent(Agent[LessonPlan]):
         error = None
         for attempt in range(self.max_attempts):
             try:
-                plan = await parse_structured_response_with_tools(model=settings.planner_model or context.model or settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nHerramientas curriculares disponibles: busca y verifica desde la fuente, no desde memoria.", user_prompt=prompt, response_format=LessonPlan, tools=CURRICULUM_TOOLS, tool_handler=handler)
+                plan = await parse_structured_response_with_tools(model=settings.planner_model or context.model or settings.openai_model, system_context=f"{context.system_context or SHARED_SYSTEM_CONTEXT}\nHerramientas curriculares disponibles: busca y verifica desde la fuente, no desde memoria.", user_prompt=prompt, response_format=LessonPlan, tools=CURRICULUM_TOOLS, tool_handler=handler, api_key=context.api_key)
                 return self._verify(plan, trace)
             except (OpenAIError, ValidationError, ValueError, CurriculumToolFailure, RuntimeError) as exc:
                 error = exc; prompt += f"\nCORRECCIÓN OBLIGATORIA: {exc}."
