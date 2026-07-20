@@ -1,4 +1,5 @@
 import type { ActivityGuide, Assessment, CoverageOverview, GenerationEvent, LessonPlan, LessonRequest, MaterialPack } from "../types/teachingPack";
+import type { PublishPracticeMaterialRequest, PublishPracticeMaterialResponse, PublishedMaterialRelease, StudentObjectiveEvidence, StudentPracticeMaterial, StudentResponseReceipt } from "../types/studentSection";
 import { mockGenerationEvents } from "../fixtures/waterTeachingPack";
 import { mockMaterialsEvents } from "../fixtures/waterMaterials";
 import { mockCoverageOverview } from "../fixtures/semesterCoverage";
@@ -9,6 +10,41 @@ export const isMockMode = import.meta.env.VITE_MOCK === "true" || new URLSearchP
 export type MockSpeed = "slow" | "normal" | "fast";
 const mockDelays: Record<MockSpeed, number> = { slow: 1300, normal: 700, fast: 180 };
 const wait = (milliseconds: number) => new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+
+export class AuthRejectedError extends Error {}
+
+async function studentRequest<T>(path: string, accessToken: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}`, ...(init.body ? { "Content-Type": "application/json" } : {}), ...init.headers },
+  });
+  if (response.status === 401 || response.status === 403) throw new AuthRejectedError("Tu sesión fue rechazada o venció.");
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { detail?: string } | null;
+    throw new Error(body?.detail ?? "No pudimos completar esta acción de estudiantes.");
+  }
+  return response.json() as Promise<T>;
+}
+
+export function listStudentMaterials(accessToken: string) {
+  return studentRequest<PublishedMaterialRelease[]>("/student-materials", accessToken);
+}
+
+export function getStudentMaterial(releaseId: string, accessToken: string) {
+  return studentRequest<StudentPracticeMaterial>(`/student-materials/${encodeURIComponent(releaseId)}`, accessToken);
+}
+
+export function submitStudentResponse(itemId: string, answer: string, accessToken: string) {
+  return studentRequest<StudentResponseReceipt>(`/student-items/${encodeURIComponent(itemId)}/responses`, accessToken, { method: "POST", body: JSON.stringify({ answer }) });
+}
+
+export function publishPracticeMaterial(request: PublishPracticeMaterialRequest, accessToken: string) {
+  return studentRequest<PublishPracticeMaterialResponse>("/student-materials/publish", accessToken, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function getStudentEvidence(classId: string, accessToken: string) {
+  return studentRequest<StudentObjectiveEvidence[]>(`/classes/${encodeURIComponent(classId)}/student-evidence`, accessToken);
+}
 
 export async function generateTeachingPackStream(
   request: LessonRequest,

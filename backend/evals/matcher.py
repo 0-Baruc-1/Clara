@@ -15,6 +15,11 @@ def _strict_match(expected: ExpectedFinding, observed: ObservedFinding) -> bool:
     return _same_anchor(expected, observed) and expected.responsible_agent == observed.responsible_agent
 
 
+def _same_manifestation(expected: ExpectedFinding, observed: ObservedFinding) -> bool:
+    """Diagnostic only: IDs are shared across artifact projections in real findings."""
+    return expected.category == observed.category and expected.target.artifact_id == observed.artifact_id
+
+
 def match_case(case: EvaluationCase, observed: list[ObservedFinding]) -> MatchResult:
     """Match facts, never prose. Attribution near misses stay outside P/R totals."""
     result = MatchResult(case_id=case.id)
@@ -33,7 +38,7 @@ def match_case(case: EvaluationCase, observed: list[ObservedFinding]) -> MatchRe
                 origin=finding.origin,
             ))
             continue
-        near_index = next((index for index, finding in enumerate(remaining) if _same_anchor(expected, finding)), None)
+        near_index = next((index for index, finding in enumerate(remaining) if _same_manifestation(expected, finding) and expected.responsible_agent != finding.responsible_agent), None)
         if near_index is not None:
             finding = remaining.pop(near_index)
             result.near_misses.append(NearMiss(
@@ -41,6 +46,8 @@ def match_case(case: EvaluationCase, observed: list[ObservedFinding]) -> MatchRe
                 observed_id=finding.id,
                 expected_agent=expected.responsible_agent,
                 observed_agent=finding.responsible_agent,
+                expected_artifact_type=expected.target.artifact_type,
+                observed_artifact_type=finding.artifact_type,
             ))
             continue
         result.false_negatives.append(expected)

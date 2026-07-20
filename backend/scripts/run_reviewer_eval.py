@@ -20,13 +20,15 @@ def main() -> int:
     parser.add_argument("--adversarial", action="store_true", help="Ejecuta salidas mock adversariales con métricas esperadas conocidas.")
     parser.add_argument("--real", action="store_true", help="Mide el Reviewer real. Requiere API key y nunca habilita mock mode.")
     parser.add_argument("--runs", type=int, default=5, help="Repeticiones independientes para --real (por defecto: 5).")
+    parser.add_argument("--concurrency", type=int, default=4, help="Casos simultáneos para --real (por defecto: 4).")
+    parser.add_argument("--resume", action="store_true", help="Reanuda una medición real incompleta desde su checkpoint compatible.")
     args = parser.parse_args()
     mock_enabled = os.getenv("CLARA_MOCK_MODE", "").casefold() in {"1", "true", "yes"}
     if args.real:
         if mock_enabled:
             raise SystemExit("--real exige CLARA_MOCK_MODE=false o sin definir; no se medirán fixtures mock como si fueran el Reviewer.")
-        report = asyncio.run(run_real(args.output, repetitions=args.runs))
-        print(f"real_reviewer_measurement runs={report['repetitions']} cases={report['case_counts']['total']} output={args.output}")
+        report = asyncio.run(run_real(args.output, repetitions=args.runs, concurrency=args.concurrency, resume=args.resume))
+        print(f"real_reviewer_measurement runs={report['repetitions_completed']}/{report['repetitions_requested']} cases={report['case_counts']['total']} output={args.output}")
         return 0
     if not mock_enabled:
         raise SystemExit("Milestone 1 only runs deterministically with CLARA_MOCK_MODE=true.")

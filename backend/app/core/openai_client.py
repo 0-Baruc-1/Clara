@@ -24,6 +24,12 @@ OutputT = TypeVar("OutputT", bound=BaseModel)
 class OpenAIRequestError(RuntimeError):
     """Safe, teacher-facing OpenAI error that never includes credentials."""
 
+    def __init__(self, message: str, *, error_type: str | None = None, status_code: int | None = None) -> None:
+        super().__init__(message)
+        # Internal diagnostics may inspect only these non-secret transport facts.
+        self.error_type = error_type
+        self.status_code = status_code
+
 
 def _safe_openai_message(error: OpenAIError) -> str:
     status_code = getattr(error, "status_code", None)
@@ -55,7 +61,11 @@ async def parse_structured_response(
         )
         return None if response.output_parsed is None else response_format.model_validate(response.output_parsed)
     except OpenAIError as error:
-        raise OpenAIRequestError(_safe_openai_message(error)) from None
+        raise OpenAIRequestError(
+            _safe_openai_message(error),
+            error_type=type(error).__name__,
+            status_code=getattr(error, "status_code", None),
+        ) from None
 
 
 async def parse_structured_response_with_tools(
@@ -100,4 +110,8 @@ async def parse_structured_response_with_tools(
             )
         raise RuntimeError("El agente excedió el límite de consultas curriculares.")
     except OpenAIError as error:
-        raise OpenAIRequestError(_safe_openai_message(error)) from None
+        raise OpenAIRequestError(
+            _safe_openai_message(error),
+            error_type=type(error).__name__,
+            status_code=getattr(error, "status_code", None),
+        ) from None

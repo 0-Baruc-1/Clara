@@ -4,6 +4,8 @@ Clara es un copiloto de enseñanza para docentes de Chile. Su diferencia no es s
 
 Una docente puede generar un pack, editarlo, pedir una nueva revisión, crear hojas imprimibles bajo demanda, auditar material creado fuera de Clara y observar cobertura curricular acumulada en su sesión local.
 
+La sección de estudiantes convierte material **publicado y atestado por la docente** en práctica. No diagnostica dominio: conserva respuestas ligadas a los ítems y OA que la docente aprobó para que ella interprete la evidencia.
+
 ## Qué entrega
 
 El flujo principal crea un pack editable para una clase:
@@ -46,6 +48,7 @@ La pasada inicial verificó Ciencias Naturales y Matemática de 6° básico: el 
 - **Auditar material existente**: importa planificación o evaluación en prosa, la interpreta de forma conservadora y utiliza el mismo Reviewer. Las conclusiones que dependen de una ausencia se muestran solo con suficiente confianza de lectura; un OA inexistente sigue siendo un hallazgo bloqueante porque es verificable por presencia.
 - **Revisar mis cambios**: después de editar el pack en el navegador, la docente puede solicitar una auditoría de esa versión. Mantiene el mismo criterio de precisión que el material importado.
 - **Cobertura curricular**: SQLite local registra solo asignatura, nivel, OA declarado, estado de verificación y evidencia de actividad. Un OA cuenta como cubierto únicamente si fue verificado y las actividades lo trabajaron. La vista declara de forma visible que solo representa los packs que Clara ha visto, no toda la planificación anual.
+- **Sección de estudiantes**: una docente publica explícitamente un snapshot inmutable y atestigua los OA verificados de sus ítems. La evidencia muestra conteos como “Sofía respondió 1 de 3 ítems que etiquetaste CN06 OA 15”; no hay porcentajes de dominio, barras de progreso ni afirmaciones de maestría. Menos de tres ítems distintos respondidos por estudiante/OA queda gris como “evidencia insuficiente” (umbral configurable por curso). Los ítems sin OA verificable pueden publicarse solo como práctica y nunca generan evidencia curricular.
 - **MCP**: Clara expone la auditoría y las herramientas curriculares para que otros agentes verifiquen su propio material antes de entregarlo.
 
 ## Ejecutar localmente
@@ -94,6 +97,53 @@ FRONTEND_ORIGIN=http://localhost:5173
 ```
 
 Nunca se incluye una clave en código ni en el repositorio.
+
+### Sección de estudiantes con Supabase
+
+Aplica, en orden, [202607180001_student_evidence.sql](backend/supabase/migrations/202607180001_student_evidence.sql), [202607180002_student_material_list_and_roles.sql](backend/supabase/migrations/202607180002_student_material_list_and_roles.sql) y [202607180003_profiles_for_student_evidence.sql](backend/supabase/migrations/202607180003_profiles_for_student_evidence.sql) en tu proyecto Supabase y agrega estas variables solo al entorno del backend:
+
+```dotenv
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_ANON_KEY=tu_anon_key
+SUPABASE_SERVICE_ROLE_KEY=solo_backend_nunca_frontend
+```
+
+La migración espera que el alta institucional asigne `teacher` o `student` en `public.clara_user_roles`; una cuenta sin ese rol no puede publicar como docente. La segunda migración permite que una persona autenticada lea **solo su propia** fila de rol para que la interfaz muestre la experiencia correcta. No usa roles como claims del JWT.
+
+La migración aplica RLS y crea un camino RPC para el estudiante que recalcula el hash de la versión y de cada ítem antes de entregarlo. Una versión publicada, sus ítems y sus atestaciones no se pueden actualizar ni eliminar en la base de datos; detener una actividad se hace desde una entidad de disponibilidad separada. Una receta SymPy se valida una sola vez al publicar mediante `parse_expr(..., evaluate=False)`, un allow-list de operaciones y límites de complejidad. Nunca se ejecuta `sympify`, `eval` ni texto LLM en el momento de responder.
+
+**Estado de verificación de la migración:** los triggers de inmutabilidad y la recomputación de hashes están definidos y revisados en la migración, pero aún no se han ejecutado contra un proyecto Supabase real (`supabase start` + intentos reales de `UPDATE`/`DELETE`). No se presentan como pruebas ejecutadas hasta completar esa comprobación de integración.
+
+El API nuevo requiere un JWT Supabase real en `Authorization: Bearer …`:
+
+- `POST /student-materials/publish`: crea el snapshot, registra la atestación docente y publica los ítems.
+- `GET /student-materials`: lista solo releases activos de clases donde la estudiante tiene una matrícula activa; RLS decide el acceso, no un `class_id` entregado por el navegador.
+- `GET /student-materials/{release_id}`: devuelve solo material de la estudiante autenticada tras verificar integridad.
+- `POST /student-items/{item_id}/responses`: entrega feedback únicamente para una receta determinista ya congelada; las respuestas de juicio quedan en cola docente.
+- `GET /classes/{class_id}/student-evidence`: devuelve conteos de evidencia, nunca mastery/maestría.
+
+La regla de lenguaje es parte del contrato: ninguna vista o endpoint puede convertir “respuestas a ítems que la docente etiquetó OA X” en “evidencia de dominio de OA X”. La etiqueta es una atestación de la docente y el salto hacia una inferencia pedagógica sigue siendo su juicio profesional.
+
+### Runbook de la sección de estudiantes
+
+En `frontend/.env`, configura las variables públicas del cliente Supabase y el único curso de la demostración:
+
+```dotenv
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu_anon_key_publica
+VITE_DEMO_CLASS_ID=uuid-del-curso-demo
+```
+
+El frontend usa `@supabase/supabase-js` para iniciar sesión y persistir una sesión real; cada petición de estudiantes al backend incluye el JWT vigente en `Authorization: Bearer …`. El rol se lee desde `clara_user_roles` con la política RLS anterior. La clave `service_role` nunca se entrega al navegador.
+
+Al ejecutar la demo, verifica exactamente lo siguiente:
+
+1. Aplicaste ambas migraciones y existen una fila de `clara_user_roles` para cada cuenta demo y el `VITE_DEMO_CLASS_ID` correcto.
+2. Existe una fila **activa** de `class_enrollments` que vincula a la estudiante demo con ese curso. Sin ella, `GET /student-materials` devolverá una lista vacía por diseño y en cámara parecerá que no hay material.
+3. Inicia sesión como docente, publica un pack y confirma que la respuesta incluye `release_id`; la publicación debe aparecer en la lista de la estudiante matriculada.
+4. Inicia sesión como estudiante, responde un ítem determinista y confirma el feedback inmediato. En un ítem `teacher_judgment`, confirma que solo aparece “Respuesta enviada. Tu profesora la revisará.”
+5. Vuelve a iniciar sesión como docente y comprueba que la tabla separa `Declarado`, `Atestado` y `Evidencia de respuestas`, manteniendo gris “evidencia insuficiente” bajo el umbral.
+6. Aplica también [202607180003_profiles_for_student_evidence.sql](backend/supabase/migrations/202607180003_profiles_for_student_evidence.sql) y siembra una fila `profiles` por cada cuenta demo (docente y estudiantes), con `user_id` igual al UUID de `auth.users` y `full_name` definido. La cobertura mostrará ese nombre real para estudiantes matriculados. Si falta una fila de perfil, no falla la evidencia: por diseño se muestra `Estudiante · <id corto>` como respaldo.
 
 ### Demo backend sin créditos
 

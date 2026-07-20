@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import math
+import asyncio
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -87,40 +88,102 @@ def _aggregate_real_runs(runs: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
-async def run_real(output_dir: Path, *, repetitions: int) -> dict[str, object]:
-    """Measure the real, existing Reviewer.  This function never enables mock mode."""
-    # Keep deterministic calibration importable even when the OpenAI SDK is not
-    # installed in a lightweight test environment.
+def _real_report(*, runs: list[dict[str, object]], repetitions: int, concurrency: int, completed: bool) -> dict[str, object]:
     from app.core.config import settings
-    from .real_adapter import ProductionReviewerAdapter
-    if repetitions < 1:
-        raise ValueError("Las repeticiones deben ser al menos una.")
-    adapter = ProductionReviewerAdapter()
-    runs: list[dict[str, object]] = []
-    for run_number in range(1, repetitions + 1):
-        results = {case.id: match_case(case, await adapter.run(case)) for case in CASES}
-        runs.append({
-            "run": run_number,
-            "metrics": summarize(results),
-            "match_results": {case_id: asdict(result) for case_id, result in results.items()},
-        })
-    report = {
+    return {
         "mode": "real_reviewer_measurement",
         "warning": "Las repeticiones son llamadas independientes al Reviewer. Las tasas agregadas son medias por corrida, no casos agrupados.",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "model": settings.reviewer_model or settings.openai_model,
-        "repetitions": repetitions,
+        "repetitions_requested": repetitions,
+        "repetitions_completed": len(runs),
+        "bounded_concurrency": concurrency,
+        "concurrency_by_run": {str(run["run"]): run.get("concurrency", concurrency) for run in runs},
+        "completed": completed,
         "case_counts": summarize({case.id: match_case(case, []) for case in CASES})["case_counts"],
         "runs": runs,
-        "aggregate": _aggregate_real_runs(runs),
+        "aggregate": _aggregate_real_runs(runs) if runs else {},
     }
+
+
+def _write_real_report(output_dir: Path, report: dict[str, object]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+class CaseEvaluationError(RuntimeError):
+    """Safe evaluation infrastructure error with a case locator, never API text."""
+
+    def __init__(self, *, case_id: str, cause: Exception) -> None:
+        super().__init__(type(cause).__name__)
+        self.case_id = case_id
+        error_type = getattr(cause, "error_type", type(cause).__name__)
+        status_code = getattr(cause, "status_code", None)
+        self.cause_type = f"{error_type}:{status_code}" if status_code is not None else error_type
+
+
+async def run_real(output_dir: Path, *, repetitions: int, concurrency: int = 4, resume: bool = False) -> dict[str, object]:
+    """Measure the real, existing Reviewer.  This function never enables mock mode."""
+    # Keep deterministic calibration importable even when the OpenAI SDK is not
+    # installed in a lightweight test environment.
+    from .real_adapter import ProductionReviewerAdapter
+
+    if repetitions < 1:
+        raise ValueError("Las repeticiones deben ser al menos una.")
+    if concurrency < 1:
+        raise ValueError("La concurrencia debe ser al menos una.")
+    adapter = ProductionReviewerAdapter()
+    runs: list[dict[str, object]] = []
+    report_path = output_dir / "report.json"
+    if resume and report_path.exists():
+        previous = json.loads(report_path.read_text(encoding="utf-8"))
+        if previous.get("mode") != "real_reviewer_measurement":
+            raise ValueError("El reporte existente no es una medición real que se pueda reanudar.")
+        if previous.get("repetitions_requested") != repetitions:
+            raise ValueError("Para reanudar, las repeticiones solicitadas deben coincidir con el checkpoint.")
+        runs = list(previous.get("runs", []))
+    for run_number in range(len(runs) + 1, repetitions + 1):
+        print(f"real_run_started run={run_number}/{repetitions}", flush=True)
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def evaluate(case_number: int, case: object) -> tuple[str, object]:
+            # EvaluationCase is kept as object here only to keep the closure tiny;
+            # CASES supplies the concrete contract.
+            try:
+                async with semaphore:
+                    return case.id, match_case(case, await adapter.run(case))  # type: ignore[attr-defined]
+            except Exception as error:
+                # Diagnostics deliberately omit request text, responses and credentials.
+                print(f"real_run_failed run={run_number}/{repetitions} case={case_number}/{len(CASES)} case_id={case.id} error_type={type(error).__name__}", flush=True)  # type: ignore[attr-defined]
+                raise CaseEvaluationError(case_id=case.id, cause=error) from error  # type: ignore[attr-defined]
+        try:
+            pairs = await asyncio.gather(*(evaluate(case_number, case) for case_number, case in enumerate(CASES, start=1)))
+        except Exception as error:
+            failed = _real_report(runs=runs, repetitions=repetitions, concurrency=concurrency, completed=False)
+            failed["failure"] = {
+                "run": run_number,
+                "case_id": getattr(error, "case_id", None),
+                "error_type": getattr(error, "cause_type", type(error).__name__),
+            }
+            _write_real_report(output_dir, failed)
+            raise
+        results = dict(pairs)
+        print(f"real_run_completed run={run_number}/{repetitions}", flush=True)
+        runs.append({
+            "run": run_number,
+            "concurrency": concurrency,
+            "metrics": summarize(results),
+            "match_results": {case_id: asdict(result) for case_id, result in results.items()},
+        })
+        _write_real_report(output_dir, _real_report(runs=runs, repetitions=repetitions, concurrency=concurrency, completed=False))
+    report = _real_report(runs=runs, repetitions=repetitions, concurrency=concurrency, completed=True)
+    _write_real_report(output_dir, report)
     summary = [
         "# Clara Reviewer Evaluation — medición real",
         "",
         f"Modelo: {report['model']}",
         f"Repeticiones independientes: {repetitions}",
+        f"Concurrencia acotada: {concurrency}",
         "Las métricas son media y desviación estándar muestral entre corridas; no se agrupan llamadas repetidas como casos adicionales.",
     ]
     (output_dir / "summary.md").write_text("\n".join(summary) + "\n", encoding="utf-8")

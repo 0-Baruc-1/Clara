@@ -110,6 +110,8 @@ class NearMiss:
     observed_id: str
     expected_agent: ResponsibleAgent
     observed_agent: ResponsibleAgent
+    expected_artifact_type: ArtifactType
+    observed_artifact_type: ArtifactType
 
 
 @dataclass

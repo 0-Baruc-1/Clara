@@ -53,6 +53,24 @@ class ReviewerEvaluationHarnessTest(unittest.TestCase):
         self.assertEqual(result.false_positives, [])
         self.assertEqual(result.false_negatives, [])
 
+    def test_cross_type_agent_attribution_is_also_a_near_miss(self) -> None:
+        case = next(case for case in CASES if case.id == "synthetic-material-gap-cn-energy-battery")
+        expected = case.expected[0]
+        observed = ObservedFinding(
+            id="battery-materials-agent",
+            severity="bloqueante",
+            responsible_agent="materials",
+            category=expected.category,
+            artifact_type="material",
+            artifact_id="energy-test",
+        )
+        result = match_case(case, [observed])
+        self.assertEqual(len(result.near_misses), 1)
+        self.assertEqual(result.near_misses[0].expected_artifact_type, "activity")
+        self.assertEqual(result.near_misses[0].observed_artifact_type, "material")
+        self.assertEqual(result.false_positives, [])
+        self.assertEqual(result.false_negatives, [])
+
     def test_unexpected_control_finding_counts_as_false_positive(self) -> None:
         control = next(case for case in CASES if case.id == "control-01")
         finding = ObservedFinding(

@@ -66,3 +66,8 @@ No hay un `seed` expuesto para este flujo de Responses API. Para medir esa
 variación, el comando hace cinco corridas independientes del mismo conjunto (340
 evaluaciones del Reviewer) y reporta media y desviación estándar muestral de las tasas
 por corrida. No suma las cinco corridas como si fueran 340 ejemplos nuevos.
+
+Si la API interrumpe una corrida, `--resume` conserva sólo las repeticiones que
+terminaron. Puede reanudarse con menor `--concurrency` para respetar límites del
+proveedor; el reporte registra la concurrencia de cada corrida. Eso altera el
+calendario de transporte, nunca los fixtures, prompts, modelo ni matcher.
